@@ -13,11 +13,15 @@
 *.dat
 gliConfig.ini
 *.hold
+Averaged Voxel Global Illumination/shaders
+Averaged Voxel Global Illumination/crytek-sponza
+Averaged Voxel Global Illumination/*.dll
 crytek-sponza-normals/
 dabrovic-sponza/
 
 # Build results
 
+[Dd]ebug/
 Averaged Voxel Global Illumination/x64/[Dd]ebug/
 Averaged Voxel Global Illumination/x64/[Rr]elease/
 Averaged Voxel Global Illumination/x64/

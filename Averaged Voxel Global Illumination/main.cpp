@@ -16,8 +16,9 @@
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
 
-// Globals.
 
+
+// Globals.
 const GLfloat pi = 3.14159265358979323846f;
 
 GLboolean resizeFlag = false;
@@ -29,6 +30,8 @@ GLfloat fov = 1.1693706f;
 
 glm::mat4 & projection = glm::mat4();
 
+
+
 // Callback to update framebuffer size and projection matrix from new window size.
 void windowSizeCallback(GLFWwindow * window, int newWidth, int newHeight)
 {
@@ -38,6 +41,8 @@ void windowSizeCallback(GLFWwindow * window, int newWidth, int newHeight)
 	projection = glm::perspectiveFov(fov, (GLfloat) width, (GLfloat) height, 0.1f, 10000.0f);
 	resizeFlag = true;
 }
+
+
 
 // Return a readable description of GL error enums.
 // Pulled from the official API.
@@ -82,6 +87,8 @@ std::string glGetErrorReadable()
 	}
 }
 
+
+
 // Call glGetError severaltimes to clear the error log.
 void glClearError(GLuint iterations)
 {
@@ -90,6 +97,8 @@ void glClearError(GLuint iterations)
 		glGetError();
 	}
 }
+
+
 
 //Shader:
 //file - file containing shader code
@@ -113,6 +122,8 @@ class shader
 			return (GLuint64) string.size();
 		}
 };
+
+
 
 //Mesh:
 //vao - id for the Vertex Array Object
@@ -148,6 +159,8 @@ struct mesh
 	aiMaterial* material;
 };
 
+
+
 //TODO: If first argument exists, use as model file.
 int WinMain(int argc, char** argv)
 {
@@ -156,9 +169,13 @@ int WinMain(int argc, char** argv)
 	// graphics.cs.williams.edu/data/meshes.xml
 	char* file = "crytek-sponza\\sponza.obj";
 
+
+
 	// Log file.
 	std::ofstream logFile;
 	logFile.open("log.txt");
+
+
 
 	logFile << "Averaged Voxel Global Illumination\n";
 
@@ -226,10 +243,14 @@ int WinMain(int argc, char** argv)
 	glCullFace (GL_BACK);
 	glFrontFace (GL_CCW);
 
+
+
 	// Load scene.
 	const aiScene* scene;
 	Assimp::Importer importer;
 	scene = importer.ReadFile(file, aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_CalcTangentSpace);
+
+
 
 	// Prepare shaders.
 	shader vertex, fragment;
@@ -269,6 +290,8 @@ int WinMain(int argc, char** argv)
 
 	// Log error from shader compiling and linking.
 	logFile << glGetErrorReadable().c_str();
+
+
 
 	// Array of meshes in scene object.
 	mesh* meshes = (mesh*) ::operator new(sizeof(mesh) * scene->mNumMeshes);
@@ -320,7 +343,6 @@ int WinMain(int argc, char** argv)
 		meshes[meshIndex].tangentVector = (glm::vec3*) ::operator new(sizeof(glm::vec3) * currentMesh->mNumVertices);
 		meshes[meshIndex].bitangentVector = (glm::vec3*) ::operator new(sizeof(glm::vec3) * currentMesh->mNumVertices);
 
-
 		for(GLuint index = 0; index < currentMesh->mNumVertices; index++)
 		{
 			// Add vertex.
@@ -348,35 +370,6 @@ int WinMain(int argc, char** argv)
 			meshes[meshIndex].bitangentVector[index].y = (GLfloat) currentBitangent->y;
 			meshes[meshIndex].bitangentVector[index].z = (GLfloat) currentBitangent->z;
 		}
-		//for(GLuint normalIndex = 0; normalIndex < currentMesh->mNumVertices; normalIndex++)
-		//{
-		//	const aiVector3D* currentNormal = &currentMesh->mNormals[normalIndex];
-		//	meshes[meshIndex].normalVector[normalIndex].x = (GLfloat) currentNormal->x;
-		//	meshes[meshIndex].normalVector[normalIndex].y = (GLfloat) currentNormal->y;
-		//	meshes[meshIndex].normalVector[normalIndex].z = (GLfloat) currentNormal->z;
-		//}
-		//for(GLuint uvIndex = 0; uvIndex < currentMesh->mNumVertices; uvIndex++)
-		//{
-		//	const aiVector3D* currentUV = &currentMesh->mTextureCoords[0][uvIndex];
-		//	meshes[meshIndex].uv[uvIndex].s = (GLfloat) currentUV->x;
-		//	meshes[meshIndex].uv[uvIndex].t = (GLfloat) currentUV->y;
-		//}
-		//for(GLuint tangentIndex = 0; tangentIndex < currentMesh->mNumVertices; tangentIndex++)
-		//{
-		//	const aiVector3D* currentTangent = &currentMesh->mTangents[tangentIndex];
-		//	meshes[meshIndex].tangentVector[tangentIndex].x = (GLfloat) currentTangent->x;
-		//	meshes[meshIndex].tangentVector[tangentIndex].y = (GLfloat) currentTangent->y;
-		//	meshes[meshIndex].tangentVector[tangentIndex].z = (GLfloat) currentTangent->z;
-		//}
-		//for(GLuint bitangentIndex = 0; bitangentIndex < currentMesh->mNumVertices; bitangentIndex++)
-		//{
-		//	const aiVector3D* currentBitangent = &currentMesh->mBitangents[bitangentIndex];
-		//	meshes[meshIndex].bitangentVector[bitangentIndex].x = (GLfloat) currentBitangent->x;
-		//	meshes[meshIndex].bitangentVector[bitangentIndex].y = (GLfloat) currentBitangent->y;
-		//	meshes[meshIndex].bitangentVector[bitangentIndex].z = (GLfloat) currentBitangent->z;
-		//}
-
-		// Add buffer mesh data.
 
 		// Generate Vertex Array Object.
 		glGenVertexArrays(1, &meshes[meshIndex].vao);
@@ -425,6 +418,8 @@ int WinMain(int argc, char** argv)
 		glBindVertexArray(0);
 	}
 
+
+
 	// Data for camera control.
 	glm::dvec2 & mouse = glm::dvec2(0.0f, 0.0f);
 	glm::dvec2 & mouseLast = glm::dvec2(0.0f, 0.0f);
@@ -439,6 +434,8 @@ int WinMain(int argc, char** argv)
 	GLfloat speed = 200.0f;
 	GLfloat mouseSpeed = 0.15f;
 
+
+
 	// Model and view matrix construction and initial projection matrix generation.
 	glm::mat4 & model = glm::mat4(1.0f);
 	glm::mat4 & view = glm::mat4();
@@ -446,6 +443,8 @@ int WinMain(int argc, char** argv)
 
 	// Create MVP matrix.
 	glm::mat4 & mvp = glm::mat4();
+
+
 
 	// Log file visual seperator.
 	logFile << "\nRender Time\n-----------\n\n";
@@ -566,11 +565,11 @@ int WinMain(int argc, char** argv)
 		glfwPollEvents();
 	}
 
-	// Teardown
+	// Teardown.
 	glfwDestroyWindow(window);
 	glfwTerminate();
 
-	//Close log
+	// Close log.
 	logFile.close();
 
 	//system("PAUSE");
