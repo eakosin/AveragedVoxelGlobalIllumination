@@ -9,3 +9,7 @@ Windows x64:
 3. Build solution.
 
 4. Run binary in x64\Release\Averaged Voxel Global Illumination.exe
+
+Linux x64:
+
+TODO

@@ -5,6 +5,7 @@
 #include <cmath>
 #include <new>
 #include "glew/glew.h"
+#define GLFW_DLL
 #include "glfw/glfw3.h"
 #include "assimp/Importer.hpp"      // C++ importer interface
 #include "assimp/scene.h"
