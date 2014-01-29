@@ -18,6 +18,7 @@
 #include "soil/SOIL.h"
 
 
+
 // Globals.
 const GLfloat pi = 3.14159265358979323846f;
 

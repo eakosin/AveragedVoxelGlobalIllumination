@@ -79,9 +79,9 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
-    <IncludePath>C:\OpenGL\include;C:\assimp-3.0\include;C:\glm;C:\gli;C:\soil;$(IncludePath)</IncludePath>
+    <IncludePath>C:\glew;C:\glfw;C:\assimp;C:\glm;C:\gli;C:\soil;$(IncludePath)</IncludePath>
     <ReferencePath>$(ReferencePath)</ReferencePath>
-    <LibraryPath>C:\OpenGL\lib;C:\assimp-3.0\lib;C:\soil\lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>C:\glew\lib;C:\glfw\lib;C:\assimp\lib;C:\soil\lib;$(LibraryPath)</LibraryPath>
     <LinkIncremental>
     </LinkIncremental>
   </PropertyGroup>
@@ -146,7 +146,7 @@
       <GenerateDebugInformation>false</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>opengl32.lib;glfw3dll.lib;glew32.lib;assimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;glfw3dll.lib;glew32.lib;assimp.lib;libSOIL.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>MSVCRT;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <SubSystem>Windows</SubSystem>
     </Link>
