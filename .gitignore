@@ -9,13 +9,15 @@
 *.suo
 *.user
 *.sln.docstates
-*.txt
 *.dat
 gliConfig.ini
 *.hold
 Averaged Voxel Global Illumination/shaders
 Averaged Voxel Global Illumination/crytek-sponza
 Averaged Voxel Global Illumination/*.dll
+x64/Release/shaders/*.txt
+x64/Release/*.txt
+Averaged Voxel Global Illumination/*.txt
 crytek-sponza-normals/
 dabrovic-sponza/
 
