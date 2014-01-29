@@ -4,8 +4,8 @@
 #include <vector>
 #include <cmath>
 #include <new>
-#include "GL\glew.h"
-#include "GLFW\glfw3.h"
+#include "glew/glew.h"
+#include "glfw/glfw3.h"
 #include "assimp/Importer.hpp"      // C++ importer interface
 #include "assimp/scene.h"
 #include "assimp/postprocess.h"
@@ -15,7 +15,7 @@
 #include "glm/mat4x4.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtc/type_ptr.hpp"
-
+#include "soil/SOIL.h"
 
 
 // Globals.
@@ -302,9 +302,7 @@ int WinMain(int argc, char** argv)
 		// Grab the current mesh.
 		const aiMesh* currentMesh = scene->mMeshes[meshIndex];
 
-		//
-		// Import mesh data into glm::vec3 and indices into GLuint.
-		//
+		meshes[meshIndex].material = scene->mMaterials[currentMesh->mMaterialIndex];
 
 		// Count up faces that have only 3 indices.
 		meshes[meshIndex].numberIndices = 0;
@@ -343,32 +341,32 @@ int WinMain(int argc, char** argv)
 		meshes[meshIndex].tangentVector = (glm::vec3*) ::operator new(sizeof(glm::vec3) * currentMesh->mNumVertices);
 		meshes[meshIndex].bitangentVector = (glm::vec3*) ::operator new(sizeof(glm::vec3) * currentMesh->mNumVertices);
 
-		for(GLuint index = 0; index < currentMesh->mNumVertices; index++)
+		for(GLuint vertexIndex = 0; vertexIndex < currentMesh->mNumVertices; vertexIndex++)
 		{
 			// Add vertex.
-			const aiVector3D* currentVertex = &currentMesh->mVertices[index];
-			meshes[meshIndex].vertexVector[index].x = (GLfloat) currentVertex->x;
-			meshes[meshIndex].vertexVector[index].y = (GLfloat) currentVertex->y;
-			meshes[meshIndex].vertexVector[index].z = (GLfloat) currentVertex->z;
+			const aiVector3D* currentVertex = &currentMesh->mVertices[vertexIndex];
+			meshes[meshIndex].vertexVector[vertexIndex].x = (GLfloat) currentVertex->x;
+			meshes[meshIndex].vertexVector[vertexIndex].y = (GLfloat) currentVertex->y;
+			meshes[meshIndex].vertexVector[vertexIndex].z = (GLfloat) currentVertex->z;
 			// Add normal.
-			const aiVector3D* currentNormal = &currentMesh->mNormals[index];
-			meshes[meshIndex].normalVector[index].x = (GLfloat) currentNormal->x;
-			meshes[meshIndex].normalVector[index].y = (GLfloat) currentNormal->y;
-			meshes[meshIndex].normalVector[index].z = (GLfloat) currentNormal->z;
+			const aiVector3D* currentNormal = &currentMesh->mNormals[vertexIndex];
+			meshes[meshIndex].normalVector[vertexIndex].x = (GLfloat) currentNormal->x;
+			meshes[meshIndex].normalVector[vertexIndex].y = (GLfloat) currentNormal->y;
+			meshes[meshIndex].normalVector[vertexIndex].z = (GLfloat) currentNormal->z;
 			// Add uv.
-			const aiVector3D* currentUV = &currentMesh->mTextureCoords[0][index];
-			meshes[meshIndex].uv[index].s = (GLfloat) currentUV->x;
-			meshes[meshIndex].uv[index].t = (GLfloat) currentUV->y;
+			const aiVector3D* currentUV = &currentMesh->mTextureCoords[0][vertexIndex];
+			meshes[meshIndex].uv[vertexIndex].s = (GLfloat) currentUV->x;
+			meshes[meshIndex].uv[vertexIndex].t = (GLfloat) currentUV->y;
 			// Add tangent.
-			const aiVector3D* currentTangent = &currentMesh->mTangents[index];
-			meshes[meshIndex].tangentVector[index].x = (GLfloat) currentTangent->x;
-			meshes[meshIndex].tangentVector[index].y = (GLfloat) currentTangent->y;
-			meshes[meshIndex].tangentVector[index].z = (GLfloat) currentTangent->z;
+			const aiVector3D* currentTangent = &currentMesh->mTangents[vertexIndex];
+			meshes[meshIndex].tangentVector[vertexIndex].x = (GLfloat) currentTangent->x;
+			meshes[meshIndex].tangentVector[vertexIndex].y = (GLfloat) currentTangent->y;
+			meshes[meshIndex].tangentVector[vertexIndex].z = (GLfloat) currentTangent->z;
 			// Add bitangent.
-			const aiVector3D* currentBitangent = &currentMesh->mBitangents[index];
-			meshes[meshIndex].bitangentVector[index].x = (GLfloat) currentBitangent->x;
-			meshes[meshIndex].bitangentVector[index].y = (GLfloat) currentBitangent->y;
-			meshes[meshIndex].bitangentVector[index].z = (GLfloat) currentBitangent->z;
+			const aiVector3D* currentBitangent = &currentMesh->mBitangents[vertexIndex];
+			meshes[meshIndex].bitangentVector[vertexIndex].x = (GLfloat) currentBitangent->x;
+			meshes[meshIndex].bitangentVector[vertexIndex].y = (GLfloat) currentBitangent->y;
+			meshes[meshIndex].bitangentVector[vertexIndex].z = (GLfloat) currentBitangent->z;
 		}
 
 		// Generate Vertex Array Object.

@@ -72,16 +72,16 @@
     <LibraryPath>C:\OpenGL\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <ExecutablePath>C:\OpenGL\bin;C:\assimp-3.0\bin;$(ExecutablePath)</ExecutablePath>
-    <IncludePath>C:\OpenGL\include;C:\assimp-3.0\include;C:\glm;C:\gli;$(IncludePath)</IncludePath>
-    <ReferencePath>C:\OpenGL\lib;C:\assimp-3.0\lib;$(ReferencePath)</ReferencePath>
-    <LibraryPath>C:\OpenGL\lib;C:\assimp-3.0\lib;$(LibraryPath)</LibraryPath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
+    <IncludePath>C:\glew;C:\glfw;C:\assimp;C:\glm;C:\gli;C:\soil;$(IncludePath)</IncludePath>
+    <ReferencePath>$(ReferencePath)</ReferencePath>
+    <LibraryPath>C:\glew\lib;C:\glfw\lib;C:\assimp\lib;C:\soil\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <ExecutablePath>C:\OpenGL\bin;C:\assimp-3.0\bin;$(ExecutablePath)</ExecutablePath>
-    <IncludePath>C:\OpenGL\include;C:\assimp-3.0\include;C:\glm;C:\gli;$(IncludePath)</IncludePath>
-    <ReferencePath>C:\OpenGL\lib;C:\assimp-3.0\lib;$(ReferencePath)</ReferencePath>
-    <LibraryPath>C:\OpenGL\lib;C:\assimp-3.0\lib;$(LibraryPath)</LibraryPath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
+    <IncludePath>C:\OpenGL\include;C:\assimp-3.0\include;C:\glm;C:\gli;C:\soil;$(IncludePath)</IncludePath>
+    <ReferencePath>$(ReferencePath)</ReferencePath>
+    <LibraryPath>C:\OpenGL\lib;C:\assimp-3.0\lib;C:\soil\lib;$(LibraryPath)</LibraryPath>
     <LinkIncremental>
     </LinkIncremental>
   </PropertyGroup>
@@ -106,7 +106,7 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opengl32.lib;glfw3dll.lib;glew32.lib;assimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;glfw3dll.lib;glew32.lib;assimp.lib;libSOIL.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>NotSet</SubSystem>
       <IgnoreAllDefaultLibraries>
       </IgnoreAllDefaultLibraries>
