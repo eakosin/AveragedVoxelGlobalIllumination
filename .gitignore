@@ -9,7 +9,6 @@
 *.suo
 *.user
 *.sln.docstates
-*.dll
 *.txt
 *.dat
 gliConfig.ini

@@ -145,7 +145,7 @@ struct mesh
 	glm::vec3* bitangentVector;
 	glm::vec3* rawVertices;
 
-
+	aiMaterial* material;
 };
 
 //TODO: If first argument exists, use as model file.
