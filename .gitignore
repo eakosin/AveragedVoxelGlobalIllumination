@@ -17,13 +17,15 @@ Averaged Voxel Global Illumination/crytek-sponza
 Averaged Voxel Global Illumination/*.dll
 x64/Release/shaders/*.txt
 x64/Release/*.txt
+x64/Debug/crytek-sponza
+x64/Debug/*.*
+x64/Debug/shaders/*.txt
 Averaged Voxel Global Illumination/*.txt
 crytek-sponza-normals/
 dabrovic-sponza/
 
 # Build results
 
-[Dd]ebug/
 Averaged Voxel Global Illumination/x64/[Dd]ebug/
 Averaged Voxel Global Illumination/x64/[Rr]elease/
 Averaged Voxel Global Illumination/x64/
