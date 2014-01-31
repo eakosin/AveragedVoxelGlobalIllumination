@@ -2,6 +2,7 @@
 #include <fstream>
 #include <string>
 #include <vector>
+#include <array>
 #include <cmath>
 #include <new>
 #include "glew/glew.h"
@@ -18,7 +19,7 @@
 #include "glm/gtc/type_ptr.hpp"
 //#include "soil/SOIL.h"
 #include "stb_image.c"
-#include "textureSlot.h"
+#include "textures.h"
 
 
 // Globals.
@@ -35,6 +36,7 @@ glm::mat4 & projection = glm::mat4();
 
 aiTextureType textureType[4] = {aiTextureType_DIFFUSE, aiTextureType_HEIGHT, aiTextureType_SPECULAR, aiTextureType_OPACITY};
 
+texturesList globalList;
 
 
 // Callback to update framebuffer size and projection matrix from new window size.
@@ -128,14 +130,15 @@ class shader
 		}
 };
 
-
+//Texture:
 class texture
 {
 	public:
 		GLuint textureID;
 		GLint width, height, depth;
 		unsigned char* imageData;
-		aiString path;
+		aiString modelRelativePath;
+		aiString relativePath;
 		const char* cstrPath;
 		aiTextureMapping mapping;
 		GLuint uvindex;
@@ -144,10 +147,36 @@ class texture
 		aiTextureMapMode mapmode;
 		void prepare()
 		{
-			cstrPath = path.C_Str();
-			//GLuint flags = SOIL_FLAG_MIPMAPS | ((mapping == aiTextureMapMode_Wrap) ? SOIL_FLAG_TEXTURE_REPEATS : 0);
-			imageData = stbi_load(cstrPath, &width, &height, &depth, 0);
-			glGenTextures(1, &textureID);
+			GLuint ID = globalList.find(modelRelativePath);
+			if(ID == 0)
+			{
+				relativePath = aiString("crytek-sponza\\");
+				relativePath.Append(modelRelativePath.C_Str());
+				cstrPath = relativePath.C_Str();
+				//GLuint flags = SOIL_FLAG_MIPMAPS | ((mapping == aiTextureMapMode_Wrap) ? SOIL_FLAG_TEXTURE_REPEATS : 0);
+				imageData = stbi_load(cstrPath, &width, &height, &depth, 0);
+				glGenTextures(1, &textureID);
+				globalList.add(modelRelativePath, textureID);
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, textureID);
+				if(depth == 4)
+				{
+					glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, imageData);
+				}
+				else
+				{
+					glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, imageData);
+				}
+				glGenerateMipmap(GL_TEXTURE_2D);
+				glTexParameteri(GL_TEXTURE_2D , GL_TEXTURE_MAG_FILTER , GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D , GL_TEXTURE_MIN_FILTER , GL_LINEAR_MIPMAP_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D , GL_TEXTURE_WRAP_S , GL_REPEAT);
+				glTexParameteri(GL_TEXTURE_2D , GL_TEXTURE_WRAP_T , GL_REPEAT);
+			}
+			else
+			{
+				textureID = ID;
+			}
 		}
 };
 
@@ -315,6 +344,9 @@ int WinMain(int argc, char** argv)
 	GLint mvpUniform;
 	mvpUniform = glGetUniformLocation(shader_program, "mvp");
 
+	GLint diffuseTextureUniform;
+	diffuseTextureUniform = glGetUniformLocation(shader_program, "diffuseTexture");
+
 	// Log error from shader compiling and linking.
 	logFile << glGetErrorReadable().c_str();
 
@@ -399,23 +431,23 @@ int WinMain(int argc, char** argv)
 		meshes[meshIndex].material = scene->mMaterials[currentMesh->mMaterialIndex];
 		aiMaterial* currentMaterial = meshes[meshIndex].material;
 
+		GLuint countMaterial;
+
 		// Load textures
 		for(GLuint type = 0; type < 4; type++)
 		{
-			if(currentMaterial->GetTextureCount(textureType[type]) > 0)
+			countMaterial = currentMaterial->GetTextureCount(textureType[type]);
+			if(countMaterial == 1)
 			{
 				dummy = currentMaterial->GetTexture(textureType[type],
 													0,
-													&meshes[meshIndex].textures[type].path,
+													&meshes[meshIndex].textures[type].modelRelativePath,
 													&meshes[meshIndex].textures[type].mapping,
 													&meshes[meshIndex].textures[type].uvindex,
 													&meshes[meshIndex].textures[type].blend,
 													&meshes[meshIndex].textures[type].operation,
 													&meshes[meshIndex].textures[type].mapmode);
 				meshes[meshIndex].textures[type].prepare();
-				glBindTexture(GL_TEXTURE_2D, meshes[meshIndex].textures[type].textureID);
-				logFile << glGetErrorReadable().c_str();
-				glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, meshes[meshIndex].textures[type].width, meshes[meshIndex].textures[type].height, 0, GL_RGB, GL_UNSIGNED_BYTE, meshes[meshIndex].textures[type].imageData);
 				logFile << glGetErrorReadable().c_str();
 			}
 			else
@@ -424,59 +456,6 @@ int WinMain(int argc, char** argv)
 			}
 		}
 
-		//if(currentMaterial->GetTextureCount(aiTextureType_HEIGHT) > 0 )
-		//{
-		//	meshes[meshIndex].normalTexture = (texture*) ::operator new(sizeof(texture));
-		//	dummy = currentMaterial->GetTexture(aiTextureType_HEIGHT,
-		//										0,
-		//										&meshes[meshIndex].normalTexture->path,
-		//										&meshes[meshIndex].normalTexture->mapping,
-		//										&meshes[meshIndex].normalTexture->uvindex,
-		//										&meshes[meshIndex].normalTexture->blend,
-		//										&meshes[meshIndex].normalTexture->operation,
-		//										&meshes[meshIndex].normalTexture->mapmode);
-		//	meshes[meshIndex].normalTexture->prepare();
-		//}
-		//else
-		//{
-		//	meshes[meshIndex].normalTexture = NULL;
-		//}
-
-		//if(currentMaterial->GetTextureCount(aiTextureType_SPECULAR) > 0)
-		//{
-		//	meshes[meshIndex].specularTexture = (texture*) ::operator new(sizeof(texture));
-		//	dummy = currentMaterial->GetTexture(aiTextureType_SPECULAR,
-		//										0,
-		//										&meshes[meshIndex].specularTexture->path,
-		//										&meshes[meshIndex].specularTexture->mapping,
-		//										&meshes[meshIndex].specularTexture->uvindex,
-		//										&meshes[meshIndex].specularTexture->blend,
-		//										&meshes[meshIndex].specularTexture->operation,
-		//										&meshes[meshIndex].specularTexture->mapmode);
-		//	meshes[meshIndex].specularTexture->prepare();
-		//}
-		//else
-		//{
-		//	meshes[meshIndex].specularTexture = NULL;
-		//}
-
-		//if(currentMaterial->GetTextureCount(aiTextureType_OPACITY) > 0)
-		//{
-		//	meshes[meshIndex].maskTexture = (texture*) ::operator new(sizeof(texture));
-		//	dummy = currentMaterial->GetTexture(aiTextureType_OPACITY,
-		//										0,
-		//										&meshes[meshIndex].maskTexture->path,
-		//										&meshes[meshIndex].maskTexture->mapping,
-		//										&meshes[meshIndex].maskTexture->uvindex,
-		//										&meshes[meshIndex].maskTexture->blend,
-		//										&meshes[meshIndex].maskTexture->operation,
-		//										&meshes[meshIndex].maskTexture->mapmode);
-		//	meshes[meshIndex].maskTexture->prepare();
-		//}
-		//else
-		//{
-		//	meshes[meshIndex].maskTexture = NULL;
-		//}
 
 		// Generate Vertex Array Object.
 		glGenVertexArrays(1, &meshes[meshIndex].vao);
@@ -657,11 +636,13 @@ int WinMain(int argc, char** argv)
 		// Assign matrix uniform from shader to uniformvs.
 		glUniformMatrix4fv(mvpUniform, 1, GL_FALSE, glm::value_ptr(mvp));
 
+		glUniform1i(diffuseTextureUniform, 0);
+
 		// Iterate through the meshes.
 		for(GLuint index = 0; index < scene->mNumMeshes; index++)
 		{
+			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, meshes[index].textures[aiTextureType_DIFFUSE].textureID);
-			glUniform1i(glGetUniformLocation(shader_program, "diffuseTexture"), 0);
 			// Set vao as active VAO in the state machine.
 			glBindVertexArray(meshes[index].vao);
 

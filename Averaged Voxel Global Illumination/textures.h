@@ -1,3 +1,32 @@
+class texturesList
+{
+	struct textureInfo
+	{
+		aiString texturePath;
+		GLuint textureID;
+	};
+	std::vector<textureInfo> textures;
+	public:
+		GLuint find(aiString modelRelativePath)
+		{
+			for (std::vector<textureInfo>::iterator iterator = textures.begin() ; iterator != textures.end(); ++iterator)
+			{
+				if(modelRelativePath == iterator->texturePath)
+				{
+					return iterator->textureID;
+				}
+			}
+			return (GLuint) 0;
+		}
+		void add(aiString modelRelativePath, GLuint textureID)
+		{
+			textureInfo newTextureInfo;
+			newTextureInfo.texturePath = modelRelativePath.C_Str();
+			newTextureInfo.textureID = textureID;
+			textures.push_back(newTextureInfo);
+		}
+};
+
 struct textureSlots
 {
 	GLuint currentSlot;

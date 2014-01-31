@@ -8,5 +8,5 @@ uniform sampler2D diffuseTexture;
 
 void main()
 {
-	fragment_colour = texture(diffuseTexture, uv);
+	fragment_colour = texture(diffuseTexture, -uv);
 }

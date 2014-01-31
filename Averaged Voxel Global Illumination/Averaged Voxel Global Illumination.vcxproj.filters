@@ -28,7 +28,7 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="textureSlot.h">
+    <ClInclude Include="textures.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
