@@ -450,7 +450,7 @@ int WinMain(int argc, char** argv)
 													&meshes[meshIndex].textures[type].operation,
 													&meshes[meshIndex].textures[type].mapmode);
 				meshes[meshIndex].textures[type].prepare(type);
-				logFile << glGetErrorReadable().c_str();
+				//logFile << glGetErrorReadable().c_str();
 			}
 			else
 			{
@@ -629,7 +629,7 @@ int WinMain(int argc, char** argv)
 		mvp = projection * view * model;
 
 		// Clear the screen.
-		glClearColor(0.0, 0.0, 0.0, 1.0);
+		glClearColor(0.714, 0.827, 0.937, 1.0);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// Enable shader_program in the state machine.
