@@ -145,7 +145,7 @@ class texture
 		GLfloat blend;
 		aiTextureOp operation;
 		aiTextureMapMode mapmode;
-		void prepare()
+		void prepare(GLuint type)
 		{
 			GLuint ID = globalList.find(modelRelativePath);
 			if(ID == 0)
@@ -157,7 +157,7 @@ class texture
 				imageData = stbi_load(cstrPath, &width, &height, &depth, 0);
 				glGenTextures(1, &textureID);
 				globalList.add(modelRelativePath, textureID);
-				glActiveTexture(GL_TEXTURE0);
+				glActiveTexture(textureSlots[type]);
 				glBindTexture(GL_TEXTURE_2D, textureID);
 				if(depth == 4)
 				{
@@ -253,9 +253,9 @@ int WinMain(int argc, char** argv)
 	glfwWindowHint(GLFW_GREEN_BITS, 8);
 	glfwWindowHint(GLFW_BLUE_BITS, 8);
 	glfwWindowHint(GLFW_ALPHA_BITS, 8);
-	glfwWindowHint(GLFW_DEPTH_BITS, 24);
+	glfwWindowHint(GLFW_DEPTH_BITS, 32);
 	glfwWindowHint(GLFW_STENCIL_BITS, 8);
-	glfwWindowHint(GLFW_SAMPLES, 0);
+	glfwWindowHint(GLFW_SAMPLES, 8);
 	glfwWindowHint(GLFW_AUX_BUFFERS, 0);
 	glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
 
@@ -295,16 +295,16 @@ int WinMain(int argc, char** argv)
 	// Enable depth testing GL_LESS and backface culling GL_CCW.
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
-	glEnable (GL_CULL_FACE);
-	glCullFace (GL_BACK);
-	glFrontFace (GL_CCW);
+	//glEnable (GL_CULL_FACE);
+	//glCullFace (GL_BACK);
+	//glFrontFace (GL_CCW);
 
 
 
 	// Load scene.
 	const aiScene* scene;
 	Assimp::Importer importer;
-	scene = importer.ReadFile(file, aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_CalcTangentSpace);
+	scene = importer.ReadFile(file, aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_CalcTangentSpace | aiProcess_FlipUVs);
 
 
 
@@ -346,6 +346,8 @@ int WinMain(int argc, char** argv)
 
 	GLint diffuseTextureUniform;
 	diffuseTextureUniform = glGetUniformLocation(shader_program, "diffuseTexture");
+	GLint opacityTextureUniform;
+	opacityTextureUniform = glGetUniformLocation(shader_program, "opacityTexture");
 
 	// Log error from shader compiling and linking.
 	logFile << glGetErrorReadable().c_str();
@@ -447,7 +449,7 @@ int WinMain(int argc, char** argv)
 													&meshes[meshIndex].textures[type].blend,
 													&meshes[meshIndex].textures[type].operation,
 													&meshes[meshIndex].textures[type].mapmode);
-				meshes[meshIndex].textures[type].prepare();
+				meshes[meshIndex].textures[type].prepare(type);
 				logFile << glGetErrorReadable().c_str();
 			}
 			else
@@ -637,12 +639,15 @@ int WinMain(int argc, char** argv)
 		glUniformMatrix4fv(mvpUniform, 1, GL_FALSE, glm::value_ptr(mvp));
 
 		glUniform1i(diffuseTextureUniform, 0);
+		glUniform1i(opacityTextureUniform, 3);
 
 		// Iterate through the meshes.
 		for(GLuint index = 0; index < scene->mNumMeshes; index++)
 		{
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, meshes[index].textures[aiTextureType_DIFFUSE].textureID);
+			glBindTexture(GL_TEXTURE_2D, meshes[index].textures[0].textureID);
+			glActiveTexture(GL_TEXTURE3);
+			glBindTexture(GL_TEXTURE_2D, meshes[index].textures[3].textureID);
 			// Set vao as active VAO in the state machine.
 			glBindVertexArray(meshes[index].vao);
 
