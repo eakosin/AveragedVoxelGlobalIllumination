@@ -38,6 +38,11 @@ aiTextureType textureType[4] = {aiTextureType_DIFFUSE, aiTextureType_HEIGHT, aiT
 
 texturesList globalList;
 
+GLdouble totalTime = 0.0;
+GLdouble currentTime = 0.0;
+GLdouble startTime = 0.0;
+GLdouble endTime = 0.0;
+
 
 // Callback to update framebuffer size and projection matrix from new window size.
 void windowSizeCallback(GLFWwindow * window, int newWidth, int newHeight)
@@ -168,10 +173,11 @@ class texture
 					glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, imageData);
 				}
 				glGenerateMipmap(GL_TEXTURE_2D);
-				glTexParameteri(GL_TEXTURE_2D , GL_TEXTURE_MAG_FILTER , GL_LINEAR);
-				glTexParameteri(GL_TEXTURE_2D , GL_TEXTURE_MIN_FILTER , GL_LINEAR_MIPMAP_LINEAR);
-				glTexParameteri(GL_TEXTURE_2D , GL_TEXTURE_WRAP_S , GL_REPEAT);
-				glTexParameteri(GL_TEXTURE_2D , GL_TEXTURE_WRAP_T , GL_REPEAT);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 16.0f);
 			}
 			else
 			{
@@ -209,6 +215,8 @@ struct mesh
 	glm::vec2* uv;
 	glm::vec3* tangentVector;
 	glm::vec3* bitangentVector;
+
+	GLuint numberRawVertices;
 	glm::vec3* rawVertices;
 
 	aiMaterial* material;
@@ -234,6 +242,9 @@ int WinMain(int argc, char** argv)
 
 
 	logFile << "Averaged Voxel Global Illumination\n";
+
+	// Log file visual seperator.
+	logFile << "\nSetup\n-----------\n\n";
 
 	// Initialize GLFW.
 	if(!GL_TRUE == glfwInit())
@@ -306,7 +317,8 @@ int WinMain(int argc, char** argv)
 	Assimp::Importer importer;
 	scene = importer.ReadFile(file, aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_CalcTangentSpace | aiProcess_FlipUVs);
 
-
+	// Log file visual seperator.
+	logFile << "\nShader Compilation\n-----------\n\n";
 
 	// Prepare shaders.
 	shader vertex, fragment;
@@ -346,16 +358,22 @@ int WinMain(int argc, char** argv)
 
 	GLint diffuseTextureUniform;
 	diffuseTextureUniform = glGetUniformLocation(shader_program, "diffuseTexture");
+	GLint normalTextureUniform;
+	normalTextureUniform = glGetUniformLocation(shader_program, "normalTexture");
 	GLint opacityTextureUniform;
 	opacityTextureUniform = glGetUniformLocation(shader_program, "opacityTexture");
 
 	// Log error from shader compiling and linking.
 	logFile << glGetErrorReadable().c_str();
 
+	// Log file visual seperator.
+	logFile << "\nImport Model\n-----------\n\n";
 
+	GLuint totalIndices = 0;
 
 	// Array of meshes in scene object.
 	mesh* meshes = (mesh*) ::operator new(sizeof(mesh) * scene->mNumMeshes);
+	GLuint numberMeshes = scene->mNumMeshes;
 
 	// Process all meshes.
 	for(GLuint meshIndex = 0; meshIndex < scene->mNumMeshes; meshIndex++)
@@ -427,6 +445,23 @@ int WinMain(int argc, char** argv)
 			meshes[meshIndex].bitangentVector[vertexIndex].y = (GLfloat) currentBitangent->y;
 			meshes[meshIndex].bitangentVector[vertexIndex].z = (GLfloat) currentBitangent->z;
 		}
+
+		startTime = glfwGetTime();
+
+		//Compute raw vertices.
+		meshes[meshIndex].numberRawVertices = meshes[meshIndex].numberIndices;
+		meshes[meshIndex].rawVertices = (glm::vec3*) ::operator new(sizeof(glm::vec3) * meshes[meshIndex].numberIndices);
+		for(GLuint index = 0; index < meshes[meshIndex].numberIndices; index++)
+		{
+			meshes[meshIndex].rawVertices[index] = glm::vec3(meshes[meshIndex].vertexVector[meshes[meshIndex].indices[index]]);
+		}
+
+		endTime = glfwGetTime();
+		currentTime = endTime - startTime;
+		totalTime += currentTime;
+		totalIndices += meshes[meshIndex].numberIndices;
+
+		logFile << "Time(" << meshes[meshIndex].numberIndices << "): " << currentTime << "\n";
 
 		aiReturn dummy;
 
@@ -507,6 +542,21 @@ int WinMain(int argc, char** argv)
 	}
 
 
+	logFile << "Total Time(" << totalIndices << "): " << totalTime << "\n";
+
+
+	//Generate the Occlusion 3D Texture
+
+	for(GLuint meshIndex = 0; meshIndex < numberMeshes; meshIndex++)
+	{
+
+	}
+
+
+
+
+
+
 
 	// Data for camera control.
 	glm::dvec2 & mouse = glm::dvec2(0.0f, 0.0f);
@@ -535,12 +585,12 @@ int WinMain(int argc, char** argv)
 
 
 	// Log file visual seperator.
-	logFile << "\nRender Time\n-----------\n\n";
+	logFile << "\nRender\n-----------\n\n";
 
 	// Initialize timers for frame time independent motion.
-	GLfloat lastTime = (GLfloat) glfwGetTime();
-	GLfloat currentTime = 0.0f;
-	GLfloat deltaTime = 0.0f;
+	GLfloat lastFrameTime = (GLfloat) glfwGetTime();
+	GLfloat currentFrameTime = 0.0f;
+	GLfloat deltaFrameTime = 0.0f;
 
 	// Boolean flag for first frame after window click condition.
 	GLboolean mouseReset = true;
@@ -549,9 +599,9 @@ int WinMain(int argc, char** argv)
 	while(!glfwGetKey(window, GLFW_KEY_ESCAPE) && !glfwWindowShouldClose(window))
 	{
 		// Input processing code from opengl-tutorial.org
-		lastTime = currentTime;
-		currentTime = (GLfloat) glfwGetTime();
-		deltaTime = currentTime - lastTime;
+		lastFrameTime = currentFrameTime;
+		currentFrameTime = (GLfloat) glfwGetTime();
+		deltaFrameTime = currentFrameTime - lastFrameTime;
 
 		// Save previous mouse position.
 		mouseLast.x = mouse.x;
@@ -575,8 +625,8 @@ int WinMain(int argc, char** argv)
 		}
 
 		// Calculate the change of angle from the distance moved with the mouse.
-		horizontalAngle += mouseSpeed * deltaTime * (GLfloat) (mouse.x - mouseLast.x);
-		verticalAngle += mouseSpeed * deltaTime * (GLfloat) (mouse.y - mouseLast.y);
+		horizontalAngle += mouseSpeed * deltaFrameTime * (GLfloat) (mouse.x - mouseLast.x);
+		verticalAngle += mouseSpeed * deltaFrameTime * (GLfloat) (mouse.y - mouseLast.y);
 
 		// Always use mouse position for motion and bind mouse to the center of the screen.
 		//glfwGetCursorPos(window, &mouse.x, &mouse.y);
@@ -599,27 +649,27 @@ int WinMain(int argc, char** argv)
 		// Change position using directional vectors.
 		if(glfwGetKey(window, GLFW_KEY_W))
 		{
-			position += forward * deltaTime * speed;
+			position += forward * deltaFrameTime * speed;
 		}
 		if(glfwGetKey(window, GLFW_KEY_S))
 		{
-			position -= forward * deltaTime * speed;
+			position -= forward * deltaFrameTime * speed;
 		}
 		if(glfwGetKey(window, GLFW_KEY_A))
 		{
-			position -= right * deltaTime * speed;
+			position -= right * deltaFrameTime * speed;
 		}
 		if(glfwGetKey(window, GLFW_KEY_D))
 		{
-			position += right * deltaTime * speed;
+			position += right * deltaFrameTime * speed;
 		}
 		if(glfwGetKey(window, GLFW_KEY_Q))
 		{
-			position -= up * deltaTime * speed;
+			position -= up * deltaFrameTime * speed;
 		}
 		if(glfwGetKey(window, GLFW_KEY_E))
 		{
-			position += up * deltaTime * speed;
+			position += up * deltaFrameTime * speed;
 		}
 
 		// Calculate view matrix from position and directional vectors.
@@ -639,13 +689,18 @@ int WinMain(int argc, char** argv)
 		glUniformMatrix4fv(mvpUniform, 1, GL_FALSE, glm::value_ptr(mvp));
 
 		glUniform1i(diffuseTextureUniform, 0);
+		glUniform1i(normalTextureUniform, 1);
 		glUniform1i(opacityTextureUniform, 3);
+
+		//startTime = glfwGetTime();
 
 		// Iterate through the meshes.
 		for(GLuint index = 0; index < scene->mNumMeshes; index++)
 		{
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, meshes[index].textures[0].textureID);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, meshes[index].textures[1].textureID);
 			glActiveTexture(GL_TEXTURE3);
 			glBindTexture(GL_TEXTURE_2D, meshes[index].textures[3].textureID);
 			// Set vao as active VAO in the state machine.
@@ -654,6 +709,11 @@ int WinMain(int argc, char** argv)
 			// Draw the current VAO using the bound IBO.
 			glDrawElements(GL_TRIANGLES, meshes[index].numberIndices, GL_UNSIGNED_INT, 0);
 		}
+
+		//endTime = glfwGetTime();
+		//currentTime = endTime - startTime;
+
+		//logFile << "Frame Time: " << currentTime << "\n";
 
 		// Swap buffers and poll for events.
 		glfwSwapBuffers(window);

@@ -5,6 +5,7 @@ in vec2 uv;
 out vec4 fragment_color;
 
 uniform sampler2D diffuseTexture;
+uniform sampler2D normalTexture;
 uniform sampler2D opacityTexture;
 
 vec4 sample_color;
