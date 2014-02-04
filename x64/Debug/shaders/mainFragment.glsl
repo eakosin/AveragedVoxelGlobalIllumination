@@ -20,8 +20,8 @@ void main()
 	intensity = vec3(intensity.x + intensity.y + intensity.z);
 	sample_color = texture(diffuseTexture, uv);
 	fragment_color = vec4(sample_color.rgb * intensity, sample_color.a);
-	if(fragment_color.a < 0.5)
-	{
-		discard;
-	}
+	//if(fragment_color.a < 0.5)
+	//{
+	//	discard;
+	//}
 }

@@ -159,11 +159,13 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\x64\Debug\shaders\fragment.glsl" />
-    <None Include="..\x64\Debug\shaders\vertex.glsl" />
+    <ClInclude Include="textures.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="textures.h" />
+    <None Include="shaders\mainFragment.glsl" />
+    <None Include="shaders\mainVertex.glsl" />
+    <None Include="shaders\voxelizationFragment.glsl" />
+    <None Include="shaders\voxelizationVertex.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

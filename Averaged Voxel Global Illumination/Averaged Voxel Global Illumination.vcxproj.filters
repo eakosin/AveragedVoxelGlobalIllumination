@@ -20,16 +20,22 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\x64\Debug\shaders\fragment.glsl">
-      <Filter>Resource Files</Filter>
-    </None>
-    <None Include="..\x64\Debug\shaders\vertex.glsl">
-      <Filter>Resource Files</Filter>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
     <ClInclude Include="textures.h">
       <Filter>Source Files</Filter>
     </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="shaders\mainFragment.glsl">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\mainVertex.glsl">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\voxelizationFragment.glsl">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\voxelizationVertex.glsl">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

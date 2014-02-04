@@ -309,6 +309,8 @@ int WinMain(int argc, char** argv)
 	//glEnable (GL_CULL_FACE);
 	//glCullFace (GL_BACK);
 	//glFrontFace (GL_CCW);
+	//glEnable(GL_BLEND);
+	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
 
 
@@ -321,47 +323,47 @@ int WinMain(int argc, char** argv)
 	logFile << "\nShader Compilation\n-----------\n\n";
 
 	// Prepare shaders.
-	shader vertex, fragment;
-	vertex.prepare("shaders\\vertex.glsl");
-	fragment.prepare("shaders\\fragment.glsl");
+	shader mainVertex, mainFragment;
+	mainVertex.prepare("shaders\\mainVertex.glsl");
+	mainFragment.prepare("shaders\\mainFragment.glsl");
 
 	// Compile shaders.
-	vertex.object = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(vertex.object, 1, &vertex.cstr, NULL);
-	glCompileShader(vertex.object);
-	fragment.object = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(fragment.object, 1, &fragment.cstr, NULL);
-	glCompileShader(fragment.object);
+	mainVertex.object = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(mainVertex.object, 1, &mainVertex.cstr, NULL);
+	glCompileShader(mainVertex.object);
+	mainFragment.object = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(mainFragment.object, 1, &mainFragment.cstr, NULL);
+	glCompileShader(mainFragment.object);
 
 	// Print shaders to logfile.
-	//logFile << "\n\nVertex Shader:\n" << vertex.cstr << "\n\nFragment Shader:\n" << fragment.cstr << "\n\n";
+	//logFile << "\n\nVertex Shader:\n" << mainVertex.cstr << "\n\nFragment Shader:\n" << mainFragment.cstr << "\n\n";
 
 	// Log shader compile errors.
 	GLsizei length = 0;
-	GLchar vertexLog[1000];
-	GLchar fragmentLog[1000];
-	glGetShaderInfoLog(vertex.object, 1000, &length, vertexLog);
-	glGetShaderInfoLog(fragment.object, 1000, &length, fragmentLog);
-	logFile << "\nVertex Shader Log:\n" << vertexLog << "\n\nFragment Shader Log:\n" << fragmentLog << "\n\n";
+	GLchar mainVertexLog[1000];
+	GLchar mainFragmentLog[1000];
+	glGetShaderInfoLog(mainVertex.object, 1000, &length, mainVertexLog);
+	glGetShaderInfoLog(mainFragment.object, 1000, &length, mainFragmentLog);
+	logFile << "\nVertex Shader Log:\n" << mainVertexLog << "\n\nFragment Shader Log:\n" << mainFragmentLog << "\n\n";
 
 	// Attach shaders to program.
-	GLuint shader_program = glCreateProgram();
-	glAttachShader(shader_program, vertex.object);
-	glAttachShader(shader_program, fragment.object);
+	GLuint mainShaderProgram = glCreateProgram();
+	glAttachShader(mainShaderProgram, mainVertex.object);
+	glAttachShader(mainShaderProgram, mainFragment.object);
 
 	// Link shader program.
-	glLinkProgram(shader_program);
+	glLinkProgram(mainShaderProgram);
 
 	// Map mvp uniform from shaders.
-	GLint mvpUniform;
-	mvpUniform = glGetUniformLocation(shader_program, "mvp");
+	GLint mainMVPUniform;
+	mainMVPUniform = glGetUniformLocation(mainShaderProgram, "mvp");
 
 	GLint diffuseTextureUniform;
-	diffuseTextureUniform = glGetUniformLocation(shader_program, "diffuseTexture");
+	diffuseTextureUniform = glGetUniformLocation(mainShaderProgram, "diffuseTexture");
 	GLint normalTextureUniform;
-	normalTextureUniform = glGetUniformLocation(shader_program, "normalTexture");
+	normalTextureUniform = glGetUniformLocation(mainShaderProgram, "normalTexture");
 	GLint opacityTextureUniform;
-	opacityTextureUniform = glGetUniformLocation(shader_program, "opacityTexture");
+	opacityTextureUniform = glGetUniformLocation(mainShaderProgram, "opacityTexture");
 
 	// Log error from shader compiling and linking.
 	logFile << glGetErrorReadable().c_str();
@@ -542,15 +544,82 @@ int WinMain(int argc, char** argv)
 	}
 
 
-	logFile << "Total Time(" << totalIndices << "): " << totalTime << "\n";
+	//logFile << "Total Time(" << totalIndices << "): " << totalTime << "\n";
 
 
 	//Generate the Occlusion 3D Texture
 
+	glm::vec3 minimum, maximum;
+
+	minimum = glm::vec3(meshes[0].rawVertices[0]);
+	maximum = glm::vec3(meshes[0].rawVertices[0]);
+
 	for(GLuint meshIndex = 0; meshIndex < numberMeshes; meshIndex++)
 	{
+		for(GLuint vertexIndex = 0; vertexIndex < meshes[meshIndex].numberRawVertices; vertexIndex++)
+		{
+			const glm::vec3* currentVertex = &meshes[meshIndex].rawVertices[vertexIndex];
+			minimum.x = minimum.x <= currentVertex->x ? minimum.x : currentVertex->x;
+			minimum.y = minimum.y <= currentVertex->y ? minimum.y : currentVertex->y;
+			minimum.z = minimum.z <= currentVertex->z ? minimum.z : currentVertex->z;
+			maximum.x = maximum.x >= currentVertex->x ? maximum.x : currentVertex->x;
+			maximum.y = maximum.y >= currentVertex->y ? maximum.y : currentVertex->y;
+			maximum.z = maximum.z >= currentVertex->z ? maximum.z : currentVertex->z;
+		}
 
 	}
+
+	// Log file visual seperator.
+	logFile << "\nVoxel Shader Compilation\n-----------\n\n";
+
+	// Prepare shaders.
+	shader voxelVertex, voxelFragment;
+	voxelVertex.prepare("shaders\\mainVertex.glsl");
+	voxelFragment.prepare("shaders\\mainFragment.glsl");
+
+	// Compile shaders.
+	voxelVertex.object = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(voxelVertex.object, 1, &voxelVertex.cstr, NULL);
+	glCompileShader(voxelVertex.object);
+	voxelFragment.object = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(voxelFragment.object, 1, &voxelFragment.cstr, NULL);
+	glCompileShader(voxelFragment.object);
+
+	// Print shaders to logfile.
+	//logFile << "\n\nVertex Shader:\n" << mainVertex.cstr << "\n\nFragment Shader:\n" << mainFragment.cstr << "\n\n";
+
+	// Log shader compile errors.
+	GLchar voxelVertexLog[1000];
+	GLchar voxelFragmentLog[1000];
+	glGetShaderInfoLog(voxelVertex.object, 1000, &length, voxelVertexLog);
+	glGetShaderInfoLog(voxelFragment.object, 1000, &length, voxelFragmentLog);
+	logFile << "\nVertex Shader Log:\n" << voxelVertexLog << "\n\nFragment Shader Log:\n" << voxelFragmentLog << "\n\n";
+
+	// Attach shaders to program.
+	GLuint voxelShaderProgram = glCreateProgram();
+	glAttachShader(voxelShaderProgram, voxelVertex.object);
+	glAttachShader(voxelShaderProgram, voxelFragment.object);
+
+	// Link shader program.
+	glLinkProgram(voxelShaderProgram);
+
+	// Map mvp uniform from shaders.
+	GLint voxelMVPUniform;
+	voxelMVPUniform = glGetUniformLocation(voxelShaderProgram, "mvp");
+
+	glm::vec3 size = maximum - minimum;
+	size.x = 1 / size.x;
+	size.y = 1 / size.y;
+	size.z = 1 / size.z;
+
+	glm::mat4 & voxelModel = glm::scale(glm::mat4(1.0f), size);
+	glm::mat4 & voxelView = glm::mat4();
+	glm::mat4 & voxelProjection = glm::ortho(0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f);
+
+	voxelView = glm::lookAt(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+	glm::mat4 & voxelMVP = voxelProjection * voxelView * voxelModel;
+
 
 
 
@@ -578,6 +647,7 @@ int WinMain(int argc, char** argv)
 	glm::mat4 & model = glm::mat4(1.0f);
 	glm::mat4 & view = glm::mat4();
 	projection = glm::perspectiveFov(fov, (GLfloat) width, (GLfloat) height, 0.1f, 10000.0f);
+	//projection = glm::ortho(-1000.0f, 1000.0f, -1000.0f, 1000.0f, 0.1f, 10000.0f);
 
 	// Create MVP matrix.
 	glm::mat4 & mvp = glm::mat4();
@@ -683,10 +753,10 @@ int WinMain(int argc, char** argv)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// Enable shader_program in the state machine.
-		glUseProgram(shader_program);
+		glUseProgram(mainShaderProgram);
 
 		// Assign matrix uniform from shader to uniformvs.
-		glUniformMatrix4fv(mvpUniform, 1, GL_FALSE, glm::value_ptr(mvp));
+		glUniformMatrix4fv(mainMVPUniform, 1, GL_FALSE, glm::value_ptr(voxelMVP));
 
 		glUniform1i(diffuseTextureUniform, 0);
 		glUniform1i(normalTextureUniform, 1);
