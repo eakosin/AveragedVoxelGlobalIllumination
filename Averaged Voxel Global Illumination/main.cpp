@@ -177,7 +177,7 @@ class texture
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 16.0f);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 16);
 			}
 			else
 			{
@@ -317,7 +317,7 @@ int WinMain(int argc, char** argv)
 	// Load scene.
 	const aiScene* scene;
 	Assimp::Importer importer;
-	scene = importer.ReadFile(file, aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_CalcTangentSpace | aiProcess_FlipUVs);
+	scene = importer.ReadFile(file, aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_CalcTangentSpace | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
 
 	// Log file visual seperator.
 	logFile << "\nShader Compilation\n-----------\n\n";
@@ -574,8 +574,8 @@ int WinMain(int argc, char** argv)
 
 	// Prepare shaders.
 	shader voxelVertex, voxelFragment;
-	voxelVertex.prepare("shaders\\mainVertex.glsl");
-	voxelFragment.prepare("shaders\\mainFragment.glsl");
+	voxelVertex.prepare("shaders\\voxelVertex.glsl");
+	voxelFragment.prepare("shaders\\voxelFragment.glsl");
 
 	// Compile shaders.
 	voxelVertex.object = glCreateShader(GL_VERTEX_SHADER);
@@ -608,15 +608,15 @@ int WinMain(int argc, char** argv)
 	voxelMVPUniform = glGetUniformLocation(voxelShaderProgram, "mvp");
 
 	glm::vec3 size = maximum - minimum;
-	size.x = 1 / size.x;
-	size.y = 1 / size.y;
-	size.z = 1 / size.z;
+	size.x = 1.0f / size.x;
+	size.y = 1.0f / size.y;
+	size.z = 1.0f / size.z;
 
 	glm::mat4 & voxelModel = glm::scale(glm::mat4(1.0f), size);
 	glm::mat4 & voxelView = glm::mat4();
-	glm::mat4 & voxelProjection = glm::ortho(0.0f, 1.0f, 0.0f, 1.0f, 0.0f, 1.0f);
+	glm::mat4 & voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.5f, 2.0f);
 
-	voxelView = glm::lookAt(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	voxelView = glm::lookAt(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
 	glm::mat4 & voxelMVP = voxelProjection * voxelView * voxelModel;
 
@@ -749,7 +749,7 @@ int WinMain(int argc, char** argv)
 		mvp = projection * view * model;
 
 		// Clear the screen.
-		glClearColor(0.714, 0.827, 0.937, 1.0);
+		glClearColor(0.714f, 0.827f, 0.937f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// Enable shader_program in the state machine.

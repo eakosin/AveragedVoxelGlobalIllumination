@@ -156,7 +156,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="main.cpp">
+      <WarningLevel Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Level3</WarningLevel>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="textures.h" />
@@ -164,8 +166,8 @@
   <ItemGroup>
     <None Include="shaders\mainFragment.glsl" />
     <None Include="shaders\mainVertex.glsl" />
-    <None Include="shaders\voxelizationFragment.glsl" />
-    <None Include="shaders\voxelizationVertex.glsl" />
+    <None Include="shaders\voxelFragment.glsl" />
+    <None Include="shaders\voxelVertex.glsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -31,10 +31,10 @@
     <None Include="shaders\mainVertex.glsl">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="shaders\voxelizationFragment.glsl">
+    <None Include="shaders\voxelFragment.glsl">
       <Filter>Resource Files</Filter>
     </None>
-    <None Include="shaders\voxelizationVertex.glsl">
+    <None Include="shaders\voxelVertex.glsl">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>
