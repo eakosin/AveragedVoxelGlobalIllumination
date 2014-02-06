@@ -27,8 +27,8 @@ const GLfloat pi = 3.14159265358979323846f;
 
 GLboolean resizeFlag = false;
 
-GLint width = 1280;
-GLint height = 720;
+GLint width = 1024;
+GLint height = 1024;
 
 GLfloat fov = 1.1693706f;
 
@@ -178,6 +178,7 @@ class texture
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, 16);
+				glBindTexture(GL_TEXTURE_2D, 0);
 			}
 			else
 			{
@@ -221,6 +222,36 @@ struct mesh
 
 	aiMaterial* material;
 	texture textures[4];
+};
+
+
+
+class layers
+{
+	public:
+		GLuint numberLayers;
+		unsigned char** x;
+		unsigned char** y;
+		unsigned char** z;
+		void prepare(GLuint voxelResolution, GLuint voxelPrecision)
+		{
+			numberLayers = voxelResolution;
+			x = (unsigned char**) ::operator new(sizeof(unsigned char*) * voxelResolution);
+			for(GLuint layerIndex = 0; layerIndex < voxelResolution; layerIndex++)
+			{
+				x[layerIndex] = (unsigned char*) ::operator new(sizeof(unsigned char) * voxelResolution * voxelPrecision);
+			}
+			y = (unsigned char**) ::operator new(sizeof(unsigned char*) * voxelResolution);
+			for(GLuint layerIndex = 0; layerIndex < voxelResolution; layerIndex++)
+			{
+				y[layerIndex] = (unsigned char*) ::operator new(sizeof(unsigned char) * voxelResolution * voxelPrecision);
+			}
+			z = (unsigned char**) ::operator new(sizeof(unsigned char*) * voxelResolution);
+			for(GLuint layerIndex = 0; layerIndex < voxelResolution; layerIndex++)
+			{
+				z[layerIndex] = (unsigned char*) ::operator new(sizeof(unsigned char) * voxelResolution * voxelPrecision);
+			}
+		}
 };
 
 
@@ -607,25 +638,75 @@ int WinMain(int argc, char** argv)
 	GLint voxelMVPUniform;
 	voxelMVPUniform = glGetUniformLocation(voxelShaderProgram, "mvp");
 
-	glm::vec3 size = maximum - minimum;
-	size.x = 1.0f / size.x;
-	size.y = 1.0f / size.y;
-	size.z = 1.0f / size.z;
+	glUseProgram(voxelShaderProgram);
 
-	glm::mat4 & voxelModel = glm::scale(glm::mat4(1.0f), size);
+
+	GLuint voxelResolution = 128;
+	GLuint voxelPrecision = 4;
+	GLuint voxelSubPrecision = 0;
+	GLfloat voxelStep = 1.0f / voxelResolution;
+
+	GLuint layerResolution = voxelResolution * voxelPrecision;
+
+	//Allocate 2D image storage and 3D compositing storage.
+	layers sceneLayer;
+	sceneLayer.prepare(voxelResolution, voxelPrecision);
+
+	//Compute normalization scale.
+	glm::vec3 size = maximum - minimum;
+	GLfloat modelSize = size.x >= size.y ? size.x : size.y;
+	modelSize = modelSize >= size.z ? modelSize : size.z;
+	GLfloat modelScale = 1.0f / modelSize;
+
+	glm::mat4 & voxelModel = glm::scale(glm::mat4(1.0f), glm::vec3(modelScale));
 	glm::mat4 & voxelView = glm::mat4();
-	glm::mat4 & voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.5f, 2.0f);
+	glm::mat4 & voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f, 2.0f);
 
 	voxelView = glm::lookAt(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
 	glm::mat4 & voxelMVP = voxelProjection * voxelView * voxelModel;
 
+	GLuint framebuffer;
+	glGenFramebuffers(1, &framebuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+	glFramebufferParameteri(framebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, voxelResolution * voxelPrecision);
+	glFramebufferParameteri(framebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, voxelResolution * voxelPrecision);
+	glFramebufferParameteri(framebuffer, GL_FRAMEBUFFER_DEFAULT_SAMPLES, voxelSubPrecision);
+
+	//Compute Z layers.
+	for(GLuint layerIndex = 0; layerIndex < sceneLayer.numberLayers; layerIndex++)
+	{
+		voxelStep = (((GLfloat) layerIndex + 1.0f) / (GLfloat) voxelResolution);
+		voxelView = glm::lookAt(glm::vec3(0.0f, voxelStep, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+		voxelMVP = voxelProjection * voxelView * voxelModel;
+
+		// Clear the screen.
+		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+		// Enable shader_program in the state machine.
+		glUseProgram(mainShaderProgram);
+
+		// Assign matrix uniform from shader to uniformvs.
+		glUniformMatrix4fv(voxelMVPUniform, 1, GL_FALSE, glm::value_ptr(voxelMVP));
+
+			// Iterate through the meshes.
+		for(GLuint index = 0; index < scene->mNumMeshes; index++)
+		{
+			// Set vao as active VAO in the state machine.
+			glBindVertexArray(meshes[index].vao);
+
+			// Draw the current VAO using the bound IBO.
+			glDrawElements(GL_TRIANGLES, meshes[index].numberIndices, GL_UNSIGNED_INT, 0);
+		}
+		glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, sceneLayer.x[layerIndex]);
+
+	}
 
 
 
-
-
-
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	// Data for camera control.
 	glm::dvec2 & mouse = glm::dvec2(0.0f, 0.0f);
@@ -756,7 +837,7 @@ int WinMain(int argc, char** argv)
 		glUseProgram(mainShaderProgram);
 
 		// Assign matrix uniform from shader to uniformvs.
-		glUniformMatrix4fv(mainMVPUniform, 1, GL_FALSE, glm::value_ptr(voxelMVP));
+		glUniformMatrix4fv(mainMVPUniform, 1, GL_FALSE, glm::value_ptr(mvp));
 
 		glUniform1i(diffuseTextureUniform, 0);
 		glUniform1i(normalTextureUniform, 1);
