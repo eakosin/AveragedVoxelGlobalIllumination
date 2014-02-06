@@ -297,7 +297,7 @@ int WinMain(int argc, char** argv)
 	glfwWindowHint(GLFW_ALPHA_BITS, 8);
 	glfwWindowHint(GLFW_DEPTH_BITS, 32);
 	glfwWindowHint(GLFW_STENCIL_BITS, 8);
-	glfwWindowHint(GLFW_SAMPLES, 8);
+	glfwWindowHint(GLFW_SAMPLES, 16);
 	glfwWindowHint(GLFW_AUX_BUFFERS, 0);
 	glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
 
@@ -342,6 +342,7 @@ int WinMain(int argc, char** argv)
 	//glFrontFace (GL_CCW);
 	//glEnable(GL_BLEND);
 	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+	glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 
 
 
@@ -700,7 +701,7 @@ int WinMain(int argc, char** argv)
 			// Draw the current VAO using the bound IBO.
 			glDrawElements(GL_TRIANGLES, meshes[index].numberIndices, GL_UNSIGNED_INT, 0);
 		}
-		glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, sceneLayer.x[layerIndex]);
+		glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, sceneLayer.z[layerIndex]);
 
 	}
 
