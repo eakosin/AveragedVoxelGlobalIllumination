@@ -73,9 +73,9 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ExecutablePath>$(ExecutablePath)</ExecutablePath>
-    <IncludePath>C:\glew;C:\glfw;C:\assimp;C:\glm;C:\gli;C:\soil;$(IncludePath)</IncludePath>
+    <IncludePath>C:\glew;C:\glfw;C:\assimp;C:\glm;C:\gli;C:\soil;C:\libbmp;$(IncludePath)</IncludePath>
     <ReferencePath>C:\soil\lib;$(ReferencePath)</ReferencePath>
-    <LibraryPath>C:\glew\lib;C:\glfw\lib;C:\assimp\lib;C:\soil\lib;$(LibraryPath)</LibraryPath>
+    <LibraryPath>C:\glew\lib;C:\glfw\lib;C:\assimp\lib;C:\soil\lib;C:\libbmp\lib;$(LibraryPath)</LibraryPath>
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -108,7 +108,7 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>opengl32.lib;glfw3dll.lib;glew32.lib;assimp.lib;SOIL.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;glfw3dll.lib;glew32.lib;assimp.lib;SOIL.lib;libbmp.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SubSystem>NotSet</SubSystem>
       <IgnoreAllDefaultLibraries>
       </IgnoreAllDefaultLibraries>

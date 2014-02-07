@@ -495,7 +495,7 @@ int WinMain(int argc, char** argv)
 		totalTime += currentTime;
 		totalIndices += meshes[meshIndex].numberIndices;
 
-		logFile << "Time(" << meshes[meshIndex].numberIndices << "): " << currentTime << "\n";
+		//logFile << "Time(" << meshes[meshIndex].numberIndices << "): " << currentTime << "\n";
 
 		aiReturn dummy;
 
@@ -576,7 +576,7 @@ int WinMain(int argc, char** argv)
 	}
 
 
-	//logFile << "Total Time(" << totalIndices << "): " << totalTime << "\n";
+	logFile << "Total Time(" << totalIndices << "): " << totalTime << "\n";
 
 
 	//Generate the Occlusion 3D Texture
