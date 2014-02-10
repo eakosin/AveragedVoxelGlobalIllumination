@@ -20,7 +20,7 @@
 //#include "soil/SOIL.h"
 #include "stb_image.c"
 #include "textures.h"
-
+#include "EasyBMP.h"
 
 // Globals.
 const GLfloat pi = 3.14159265358979323846f;
@@ -110,6 +110,65 @@ void glClearError(GLuint iterations)
 	}
 }
 
+
+
+// Save unsigned char * to a .bmp file.
+void saveBMP(const char * filename, unsigned char * data, unsigned int size, GLuint depth)
+{
+	glm::u8vec4 *dataVector = (glm::u8vec4*) ::operator new(sizeof(glm::u8vec4) * size * size);
+	for(GLuint index = 0; index < size * size; index++)
+	{
+		dataVector[index].r = data[(depth * index)];
+		dataVector[index].g = data[(depth * index) + 1];
+		dataVector[index].b = data[(depth * index) + 2];
+		if(depth == 4) dataVector[index].a = data[(depth * index) + 3];
+	}
+	BMP imageOut;
+	imageOut.SetSize(size, size);
+	imageOut.SetBitDepth(depth == 4 ? 32 : 24);
+	GLuint index = 0;
+	for(GLuint y = 0; y < size; y++)
+	{
+		for(GLuint x = 0; x < size; x++)
+		{
+			imageOut(x, y)->Red = dataVector[index].r;
+			imageOut(x, y)->Green = dataVector[index].g;
+			imageOut(x, y)->Blue = dataVector[index].b;
+			if(depth == 4) imageOut(x, y)->Alpha = dataVector[index].a;
+			index++;
+		}
+	}
+	imageOut.WriteToFile(filename);
+}
+
+// Save unsigned char * to a .bmp file.
+void saveBMP(char * filename, unsigned char * data, unsigned int width, unsigned int height, GLuint depth)
+{
+	glm::u8vec4 *dataVector = (glm::u8vec4*) ::operator new(sizeof(glm::u8vec4) * width * height);
+	for(GLuint index = 0; index < width * height; index++)
+	{
+		dataVector[index].r = data[(depth * index)];
+		dataVector[index].g = data[(depth * index) + 1];
+		dataVector[index].b = data[(depth * index) + 2];
+		if(depth == 4) dataVector[index].a = data[(depth * index) + 3];
+	}
+	BMP imageOut;
+	imageOut.SetSize(width, height);
+	imageOut.SetBitDepth(depth == 4 ? 32 : 24);
+	GLuint index = 0;
+	for(GLuint y = 0; y < height; y++)
+	{
+		for(GLuint x = 0; x < width; x++)
+		{
+			imageOut(x, y)->Red = dataVector[index].r;
+			imageOut(x, y)->Green = dataVector[index].g;
+			imageOut(x, y)->Blue = dataVector[index].b;
+			if(depth == 4) imageOut(x, y)->Alpha = dataVector[index].a;
+			index++;
+		}
+	}
+	imageOut.WriteToFile(filename);
+}
 
 
 //Shader:
@@ -233,23 +292,26 @@ class layers
 		unsigned char** x;
 		unsigned char** y;
 		unsigned char** z;
-		void prepare(GLuint voxelResolution, GLuint voxelPrecision)
+		//glm::vec3 * & xVector;
+		//glm::vec3 * & yVector;
+		//glm::vec3 * & zVector;
+		void prepare(GLuint voxelResolution, GLuint layerResolution, GLuint depth)
 		{
 			numberLayers = voxelResolution;
 			x = (unsigned char**) ::operator new(sizeof(unsigned char*) * voxelResolution);
 			for(GLuint layerIndex = 0; layerIndex < voxelResolution; layerIndex++)
 			{
-				x[layerIndex] = (unsigned char*) ::operator new(sizeof(unsigned char) * voxelResolution * voxelPrecision);
+				x[layerIndex] = (unsigned char*) ::operator new(sizeof(unsigned char) * layerResolution * layerResolution * depth);
 			}
 			y = (unsigned char**) ::operator new(sizeof(unsigned char*) * voxelResolution);
 			for(GLuint layerIndex = 0; layerIndex < voxelResolution; layerIndex++)
 			{
-				y[layerIndex] = (unsigned char*) ::operator new(sizeof(unsigned char) * voxelResolution * voxelPrecision);
+				y[layerIndex] = (unsigned char*) ::operator new(sizeof(unsigned char) * layerResolution * layerResolution * depth);
 			}
 			z = (unsigned char**) ::operator new(sizeof(unsigned char*) * voxelResolution);
 			for(GLuint layerIndex = 0; layerIndex < voxelResolution; layerIndex++)
 			{
-				z[layerIndex] = (unsigned char*) ::operator new(sizeof(unsigned char) * voxelResolution * voxelPrecision);
+				z[layerIndex] = (unsigned char*) ::operator new(sizeof(unsigned char) * layerResolution * layerResolution * depth);
 			}
 		}
 };
@@ -342,8 +404,8 @@ int WinMain(int argc, char** argv)
 	//glFrontFace (GL_CCW);
 	//glEnable(GL_BLEND);
 	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
-
+	glDisable(GL_MULTISAMPLE);
+	glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 
 
 	// Load scene.
@@ -578,6 +640,8 @@ int WinMain(int argc, char** argv)
 
 	logFile << "Total Time(" << totalIndices << "): " << totalTime << "\n";
 
+	logFile << "\nVoxel Occlusion Preperation\n-----------\n\n";
+
 
 	//Generate the Occlusion 3D Texture
 
@@ -600,6 +664,8 @@ int WinMain(int argc, char** argv)
 		}
 
 	}
+	logFile << "Minimum\nX: " << minimum.x << "\nY: " << minimum.y << "\nZ: " << minimum.z << "\n";
+	logFile << "Maximum\nX: " << maximum.x << "\nY: " << maximum.y << "\nZ: " << maximum.z << "\n";
 
 	// Log file visual seperator.
 	logFile << "\nVoxel Shader Compilation\n-----------\n\n";
@@ -641,17 +707,23 @@ int WinMain(int argc, char** argv)
 
 	glUseProgram(voxelShaderProgram);
 
+	// Log file visual seperator.
+	logFile << "\nVoxel Occlusion Generation\n-----------\n\n";
+
 
 	GLuint voxelResolution = 128;
 	GLuint voxelPrecision = 4;
 	GLuint voxelSubPrecision = 0;
+	GLfloat overlap = 0.001f;
 	GLfloat voxelStep = 1.0f / voxelResolution;
 
 	GLuint layerResolution = voxelResolution * voxelPrecision;
 
+	glViewport(0, 0, layerResolution, layerResolution);
+
 	//Allocate 2D image storage and 3D compositing storage.
 	layers sceneLayer;
-	sceneLayer.prepare(voxelResolution, voxelPrecision);
+	sceneLayer.prepare(voxelResolution, layerResolution, 3);
 
 	//Compute normalization scale.
 	glm::vec3 size = maximum - minimum;
@@ -659,26 +731,60 @@ int WinMain(int argc, char** argv)
 	modelSize = modelSize >= size.z ? modelSize : size.z;
 	GLfloat modelScale = 1.0f / modelSize;
 
-	glm::mat4 & voxelModel = glm::scale(glm::mat4(1.0f), glm::vec3(modelScale));
-	glm::mat4 & voxelView = glm::mat4();
-	glm::mat4 & voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f, 2.0f);
+	logFile << "Model Size\nX: " << modelSize << "\n";
+	logFile << "Model Scale\nX: " << modelScale << "\n";
 
-	voxelView = glm::lookAt(glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	glm::vec3 center = glm::vec3();
+
+	center = maximum + minimum;
+
+	logFile << "Center\nX: " << center.x << "\nY: " << center.y << "\nZ: " << center.z << "\n";
+
+	center = center / modelSize;
+	center = center / 2.0f;
+
+	logFile << "Scaled Center\nX: " << center.x << "\nY: " << center.y << "\nZ: " << center.z << "\n";
+
+	glm::mat4 & voxelModelScale = glm::scale(glm::mat4(1.0f), glm::vec3(modelScale));
+	glm::mat4 & voxelModelTranslate = glm::translate(glm::mat4(1.0f), -center);
+	//glm::mat4 & voxelModel = glm::translate(glm::mat4(1.0f), center);
+	//voxelModel = glm::scale(voxelModel, glm::vec3(modelScale));
+	glm::mat4 & voxelView = glm::mat4();
+	//
+	//glm::mat4 & voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, -2.0f, 2.0f);
+	glm::mat4 & voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f, 1.0f / (GLfloat) voxelResolution);
+	
+	//voxelView = glm::lookAt(glm::vec3(0.0f, 0.5f, 0.0f), glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	voxelView = glm::lookAt(glm::vec3(0.0f, 0.5f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+	glm::mat4 & voxelModel = voxelModelTranslate * voxelModelScale;
 
 	glm::mat4 & voxelMVP = voxelProjection * voxelView * voxelModel;
 
 	GLuint framebuffer;
 	glGenFramebuffers(1, &framebuffer);
 	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-	glFramebufferParameteri(framebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, voxelResolution * voxelPrecision);
-	glFramebufferParameteri(framebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, voxelResolution * voxelPrecision);
+	glFramebufferParameteri(framebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, layerResolution);
+	glFramebufferParameteri(framebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, layerResolution);
 	glFramebufferParameteri(framebuffer, GL_FRAMEBUFFER_DEFAULT_SAMPLES, voxelSubPrecision);
 
-	//Compute Z layers.
+	GLuint framebufferTexture;
+	glGenTextures(1, &framebufferTexture);
+	glBindTexture(GL_TEXTURE_2D, framebufferTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, layerResolution, layerResolution, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferTexture, 0);
+
+	string layerSavePath = string("layers\\");
+	totalTime = 0;
+	//Compute Y layers.
 	for(GLuint layerIndex = 0; layerIndex < sceneLayer.numberLayers; layerIndex++)
 	{
+		startTime = glfwGetTime();
 		voxelStep = (((GLfloat) layerIndex + 1.0f) / (GLfloat) voxelResolution);
-		voxelView = glm::lookAt(glm::vec3(0.0f, voxelStep, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f + voxelStep - overlap, (1.0f / (GLfloat) voxelResolution) + voxelStep + overlap);
 
 		voxelMVP = voxelProjection * voxelView * voxelModel;
 
@@ -687,7 +793,7 @@ int WinMain(int argc, char** argv)
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// Enable shader_program in the state machine.
-		glUseProgram(mainShaderProgram);
+		glUseProgram(voxelShaderProgram);
 
 		// Assign matrix uniform from shader to uniformvs.
 		glUniformMatrix4fv(voxelMVPUniform, 1, GL_FALSE, glm::value_ptr(voxelMVP));
@@ -701,13 +807,18 @@ int WinMain(int argc, char** argv)
 			// Draw the current VAO using the bound IBO.
 			glDrawElements(GL_TRIANGLES, meshes[index].numberIndices, GL_UNSIGNED_INT, 0);
 		}
-		glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, sceneLayer.z[layerIndex]);
-
+		glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, sceneLayer.y[layerIndex]);
+		totalTime += glfwGetTime() - startTime;
+		saveBMP(string("layers\\").append(to_string(layerIndex).append(string(".bmp"))).c_str(), sceneLayer.y[layerIndex], layerResolution, 3);
 	}
 
-
+	logFile << "\nTotal Time: " << totalTime << "\n";
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glEnable(GL_MULTISAMPLE);
+	glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+	glViewport(0, 0, width, height);
 
 	// Data for camera control.
 	glm::dvec2 & mouse = glm::dvec2(0.0f, 0.0f);
@@ -746,6 +857,10 @@ int WinMain(int argc, char** argv)
 
 	// Boolean flag for first frame after window click condition.
 	GLboolean mouseReset = true;
+
+	//GLfloat voxelViewPosition = 0.0f;
+
+	bool inputLock = true;
 
 	// Main loop with exit on ESC or window close
 	while(!glfwGetKey(window, GLFW_KEY_ESCAPE) && !glfwWindowShouldClose(window))
@@ -823,6 +938,30 @@ int WinMain(int argc, char** argv)
 		{
 			position += up * deltaFrameTime * speed;
 		}
+
+
+
+		//if(glfwGetKey(window, GLFW_KEY_Q) && inputLock)
+		//{
+		//	voxelViewPosition -= 1.0f / voxelResolution;
+		//	inputLock = false;
+		//}
+		//if(glfwGetKey(window, GLFW_KEY_E) && inputLock)
+		//{
+		//	voxelViewPosition += 1.0f / voxelResolution;
+		//	inputLock = false;
+		//}
+		//if((!glfwGetKey(window, GLFW_KEY_Q) && !glfwGetKey(window, GLFW_KEY_E)) && !inputLock)
+		//{
+		//	inputLock = true;
+		//}
+
+
+		//Voxel Test Perspective
+		//voxelView = glm::lookAt(glm::vec3(0.0f, 0.5f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+		//voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f + voxelViewPosition, (1.0f / (GLfloat) voxelResolution) + voxelViewPosition);
+		//glm::mat4 & voxelMVP = voxelProjection * voxelView * voxelModel;
+
 
 		// Calculate view matrix from position and directional vectors.
 		view = glm::lookAt(position, position + forward, up);

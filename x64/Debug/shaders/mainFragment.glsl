@@ -32,7 +32,6 @@ void main()
 	{
 		 sample_color.a = abs(clamp(lod.y, 1.0, 100.0)) * 0.85 * (sample_color.a - 0.5) + 0.5;
 	}
-
 	fragment_color = vec4(sample_color.rgb * intensity, sample_color.a);
 	//if(fragment_color.a < 0.5)
 	//{
