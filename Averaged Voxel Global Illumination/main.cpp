@@ -404,8 +404,8 @@ int WinMain(int argc, char** argv)
 	//glFrontFace (GL_CCW);
 	//glEnable(GL_BLEND);
 	//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-	glDisable(GL_MULTISAMPLE);
-	glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+	//glDisable(GL_MULTISAMPLE);
+	//glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 
 
 	// Load scene.
@@ -719,11 +719,22 @@ int WinMain(int argc, char** argv)
 
 	GLuint layerResolution = voxelResolution * voxelPrecision;
 
+	layers emptyLayer;
+	emptyLayer.prepare(1, voxelResolution, 3);
+
+	for(GLuint index = 0; index < voxelResolution * 3; index++)
+	{
+		emptyLayer.x[0][index] = 0x00;
+		emptyLayer.y[0][index] = 0x00;
+		emptyLayer.z[0][index] = 0x00;
+	}
+
 	glViewport(0, 0, layerResolution, layerResolution);
 
 	//Allocate 2D image storage and 3D compositing storage.
-	layers sceneLayer;
-	sceneLayer.prepare(voxelResolution, layerResolution, 3);
+	layers rawLayer, processedLayer;
+	rawLayer.prepare(voxelResolution, layerResolution, 3);
+	processedLayer.prepare(voxelResolution, voxelResolution, 3);
 
 	//Compute normalization scale.
 	glm::vec3 size = maximum - minimum;
@@ -747,69 +758,100 @@ int WinMain(int argc, char** argv)
 
 	glm::mat4 & voxelModelScale = glm::scale(glm::mat4(1.0f), glm::vec3(modelScale));
 	glm::mat4 & voxelModelTranslate = glm::translate(glm::mat4(1.0f), -center);
-	//glm::mat4 & voxelModel = glm::translate(glm::mat4(1.0f), center);
-	//voxelModel = glm::scale(voxelModel, glm::vec3(modelScale));
-	glm::mat4 & voxelView = glm::mat4();
+
+	glm::mat4 voxelViewX, voxelViewY, voxelViewZ;
 	//
 	//glm::mat4 & voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, -2.0f, 2.0f);
 	glm::mat4 & voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f, 1.0f / (GLfloat) voxelResolution);
 	
-	//voxelView = glm::lookAt(glm::vec3(0.0f, 0.5f, 0.0f), glm::vec3(0.0f, 10.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	voxelView = glm::lookAt(glm::vec3(0.0f, 0.5f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	voxelViewY = glm::lookAt(glm::vec3(0.0f, 0.5f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
 	glm::mat4 & voxelModel = voxelModelTranslate * voxelModelScale;
 
-	glm::mat4 & voxelMVP = voxelProjection * voxelView * voxelModel;
+	glm::mat4 & voxelMVP = voxelProjection * voxelViewY * voxelModel;
 
-	GLuint framebuffer;
-	glGenFramebuffers(1, &framebuffer);
-	glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
-	glFramebufferParameteri(framebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, layerResolution);
-	glFramebufferParameteri(framebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, layerResolution);
-	glFramebufferParameteri(framebuffer, GL_FRAMEBUFFER_DEFAULT_SAMPLES, voxelSubPrecision);
+	glClearError(5);
 
-	GLuint framebufferTexture;
-	glGenTextures(1, &framebufferTexture);
-	glBindTexture(GL_TEXTURE_2D, framebufferTexture);
+	GLuint multisampleFramebuffer, coverageFramebuffer;
+	glGenFramebuffers(1, &coverageFramebuffer);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);
+	glFramebufferParameteri(coverageFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, layerResolution);
+	glFramebufferParameteri(coverageFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, layerResolution);
+	glGenFramebuffers(1, &multisampleFramebuffer);
+	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisampleFramebuffer);
+	glFramebufferParameteri(multisampleFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, layerResolution);
+	glFramebufferParameteri(multisampleFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, layerResolution);
+	glFramebufferParameteri(multisampleFramebuffer, GL_FRAMEBUFFER_DEFAULT_SAMPLES, voxelSubPrecision);
+	logFile << glGetErrorReadable().c_str();
+	GLuint multisampleFramebufferTexture;
+	glGenTextures(1, &multisampleFramebufferTexture);
+	glBindTexture(GL_TEXTURE_2D, multisampleFramebufferTexture);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, layerResolution, layerResolution, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	//glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, voxelSubPrecision, GL_RGB, layerResolution, layerResolution, 0);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, framebufferTexture, 0);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, multisampleFramebufferTexture, 0);
 
-	string layerSavePath = string("layers\\");
+
 	totalTime = 0;
+
+	//GLfloat layerScalar, modelScalarMin, modelScalarMax;
+
 	//Compute Y layers.
-	for(GLuint layerIndex = 0; layerIndex < sceneLayer.numberLayers; layerIndex++)
+	for(GLuint layerIndex = 0; layerIndex < rawLayer.numberLayers; layerIndex++)
 	{
-		startTime = glfwGetTime();
-		voxelStep = (((GLfloat) layerIndex + 1.0f) / (GLfloat) voxelResolution);
-		voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f + voxelStep - overlap, (1.0f / (GLfloat) voxelResolution) + voxelStep + overlap);
-
-		voxelMVP = voxelProjection * voxelView * voxelModel;
-
-		// Clear the screen.
-		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-		// Enable shader_program in the state machine.
-		glUseProgram(voxelShaderProgram);
-
-		// Assign matrix uniform from shader to uniformvs.
-		glUniformMatrix4fv(voxelMVPUniform, 1, GL_FALSE, glm::value_ptr(voxelMVP));
-
-			// Iterate through the meshes.
-		for(GLuint index = 0; index < scene->mNumMeshes; index++)
+		//layerScalar = ((((GLfloat) layerIndex + 1.0f) / (GLfloat) rawLayer.numberLayers) - 0.5f);
+		//modelScalarMin = ((minimum.y * modelScale) + -center.y);
+		//modelScalarMax = ((maximum.y * modelScale) + -center.y);
+		//logFile << "Layer\nLayer Scalar: " << layerScalar << "\nModel Scalar Min: " << modelScalarMin << "\nModel Scalar Max: " << modelScalarMax << "\n";
+		if( ((( (GLfloat) layerIndex + 2.0f) / (GLfloat) rawLayer.numberLayers) - 0.5f) < ((minimum.y * modelScale) + -center.y) )
 		{
-			// Set vao as active VAO in the state machine.
-			glBindVertexArray(meshes[index].vao);
-
-			// Draw the current VAO using the bound IBO.
-			glDrawElements(GL_TRIANGLES, meshes[index].numberIndices, GL_UNSIGNED_INT, 0);
+			free(processedLayer.y[layerIndex]);
+			processedLayer.y[layerIndex] = emptyLayer.y[0];
 		}
-		glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, sceneLayer.y[layerIndex]);
-		totalTime += glfwGetTime() - startTime;
-		saveBMP(string("layers\\").append(to_string(layerIndex).append(string(".bmp"))).c_str(), sceneLayer.y[layerIndex], layerResolution, 3);
+		else if( ((( (GLfloat) layerIndex + 1.0f) / (GLfloat) rawLayer.numberLayers) - 0.5f) > ((maximum.y * modelScale) + -center.y) )
+		{
+			free(processedLayer.y[layerIndex]);
+			processedLayer.y[layerIndex] = emptyLayer.y[0];
+		}
+		else
+		{
+			startTime = glfwGetTime();
+			voxelStep = (((GLfloat) layerIndex + 1.0f) / (GLfloat) voxelResolution);
+			voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f + voxelStep - overlap, (1.0f / (GLfloat) voxelResolution) + voxelStep + overlap);
+
+			voxelMVP = voxelProjection * voxelViewY * voxelModel;
+
+			// Clear the screen.
+			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			// Enable shader_program in the state machine.
+			glUseProgram(voxelShaderProgram);
+
+			// Assign matrix uniform from shader to uniformvs.
+			glUniformMatrix4fv(voxelMVPUniform, 1, GL_FALSE, glm::value_ptr(voxelMVP));
+
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisampleFramebuffer);
+			// Iterate through the meshes.
+			for(GLuint index = 0; index < scene->mNumMeshes; index++)
+			{
+				// Set vao as active VAO in the state machine.
+				glBindVertexArray(meshes[index].vao);
+
+				// Draw the current VAO using the bound IBO.
+				glDrawElements(GL_TRIANGLES, meshes[index].numberIndices, GL_UNSIGNED_INT, 0);
+			}
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);
+			//glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);
+			//glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+			//glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);
+			glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, rawLayer.y[layerIndex]);
+			totalTime += glfwGetTime() - startTime;
+			saveBMP(string("layers\\").append(to_string(layerIndex).append(string("y.bmp"))).c_str(), rawLayer.y[layerIndex], layerResolution, 3);
+			//TODO: process layer
+		}
 	}
 
 	logFile << "\nTotal Time: " << totalTime << "\n";

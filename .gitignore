@@ -20,6 +20,7 @@ x64/Release/*.txt
 x64/Debug/crytek-sponza
 x64/Debug/sponza*
 x64/Debug/layers
+x64/Debug/correctlayers
 x64/Debug/*.*
 x64/Debug/Images
 x64/Debug/shaders/*.txt
