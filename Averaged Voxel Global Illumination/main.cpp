@@ -119,9 +119,12 @@ void saveBMP(const char * filename, unsigned char * data, unsigned int size, GLu
 	for(GLuint index = 0; index < size * size; index++)
 	{
 		dataVector[index].r = data[(depth * index)];
-		dataVector[index].g = data[(depth * index) + 1];
-		dataVector[index].b = data[(depth * index) + 2];
-		if(depth == 4) dataVector[index].a = data[(depth * index) + 3];
+		if(depth > 1)
+		{
+			dataVector[index].g = data[(depth * index) + 1];
+			dataVector[index].b = data[(depth * index) + 2];
+			if(depth == 4) dataVector[index].a = data[(depth * index) + 3];
+		}
 	}
 	BMP imageOut;
 	imageOut.SetSize(size, size);
@@ -131,10 +134,19 @@ void saveBMP(const char * filename, unsigned char * data, unsigned int size, GLu
 	{
 		for(GLuint x = 0; x < size; x++)
 		{
-			imageOut(x, y)->Red = dataVector[index].r;
-			imageOut(x, y)->Green = dataVector[index].g;
-			imageOut(x, y)->Blue = dataVector[index].b;
-			if(depth == 4) imageOut(x, y)->Alpha = dataVector[index].a;
+			if(depth == 1)
+			{
+				imageOut(x, y)->Red = dataVector[index].r;
+				imageOut(x, y)->Green = dataVector[index].r;
+				imageOut(x, y)->Blue = dataVector[index].r;
+			}
+			else
+			{
+				imageOut(x, y)->Red = dataVector[index].r;
+				imageOut(x, y)->Green = dataVector[index].g;
+				imageOut(x, y)->Blue = dataVector[index].b;
+				if(depth == 4) imageOut(x, y)->Alpha = dataVector[index].a;
+			}
 			index++;
 		}
 	}
@@ -148,9 +160,12 @@ void saveBMP(char * filename, unsigned char * data, unsigned int width, unsigned
 	for(GLuint index = 0; index < width * height; index++)
 	{
 		dataVector[index].r = data[(depth * index)];
-		dataVector[index].g = data[(depth * index) + 1];
-		dataVector[index].b = data[(depth * index) + 2];
-		if(depth == 4) dataVector[index].a = data[(depth * index) + 3];
+		if(depth > 1)
+		{
+			dataVector[index].g = data[(depth * index) + 1];
+			dataVector[index].b = data[(depth * index) + 2];
+			if(depth == 4) dataVector[index].a = data[(depth * index) + 3];
+		}
 	}
 	BMP imageOut;
 	imageOut.SetSize(width, height);
@@ -160,10 +175,19 @@ void saveBMP(char * filename, unsigned char * data, unsigned int width, unsigned
 	{
 		for(GLuint x = 0; x < width; x++)
 		{
-			imageOut(x, y)->Red = dataVector[index].r;
-			imageOut(x, y)->Green = dataVector[index].g;
-			imageOut(x, y)->Blue = dataVector[index].b;
-			if(depth == 4) imageOut(x, y)->Alpha = dataVector[index].a;
+			if(depth == 1)
+			{
+				imageOut(x, y)->Red = dataVector[index].r;
+				imageOut(x, y)->Green = dataVector[index].g;
+				imageOut(x, y)->Blue = dataVector[index].b;
+			}
+			else
+			{
+				imageOut(x, y)->Red = dataVector[index].r;
+				imageOut(x, y)->Green = dataVector[index].g;
+				imageOut(x, y)->Blue = dataVector[index].b;
+				if(depth == 4) imageOut(x, y)->Alpha = dataVector[index].a;
+			}
 			index++;
 		}
 	}
@@ -197,9 +221,9 @@ void calculateCoverage(unsigned char * coverageTexture, unsigned char * layer, G
 	}
 	for(GLuint index = 0; index < voxelResolution * voxelResolution; index++)
 	{
-		layer[3 * index] = (unsigned char) ((GLfloat) sumLayer[index] / (GLfloat) (voxelPrecision * voxelPrecision));
-		layer[(3 * index) + 1] = (unsigned char) ((GLfloat) sumLayer[index] / (GLfloat) (voxelPrecision * voxelPrecision));
-		layer[(3 * index) + 2] = (unsigned char) ((GLfloat) sumLayer[index] / (GLfloat) (voxelPrecision * voxelPrecision));
+		layer[index] = (unsigned char) ((GLfloat) sumLayer[index] / (GLfloat) (voxelPrecision * voxelPrecision));
+		//layer[(3 * index) + 1] = (unsigned char) ((GLfloat) sumLayer[index] / (GLfloat) (voxelPrecision * voxelPrecision));
+		//layer[(3 * index) + 2] = (unsigned char) ((GLfloat) sumLayer[index] / (GLfloat) (voxelPrecision * voxelPrecision));
 	}
 }
 
@@ -684,6 +708,7 @@ int WinMain(int argc, char** argv)
 	minimum = glm::vec3(meshes[0].rawVertices[0]);
 	maximum = glm::vec3(meshes[0].rawVertices[0]);
 
+	//Find the bounding box of the model
 	for(GLuint meshIndex = 0; meshIndex < numberMeshes; meshIndex++)
 	{
 		for(GLuint vertexIndex = 0; vertexIndex < meshes[meshIndex].numberRawVertices; vertexIndex++)
@@ -698,6 +723,7 @@ int WinMain(int argc, char** argv)
 		}
 
 	}
+
 	logFile << "Minimum\nX: " << minimum.x << "\nY: " << minimum.y << "\nZ: " << minimum.z << "\n";
 	logFile << "Maximum\nX: " << maximum.x << "\nY: " << maximum.y << "\nZ: " << maximum.z << "\n";
 
@@ -756,7 +782,8 @@ int WinMain(int argc, char** argv)
 	layers emptyLayer;
 	emptyLayer.prepare(1, voxelResolution, 3);
 
-	for(GLuint index = 0; index < voxelResolution * voxelResolution * 3; index++)
+	//Generate an empty layer.
+	for(GLuint index = 0; index < voxelResolution * voxelResolution; index++)
 	{
 		emptyLayer.x[0][index] = 0x00;
 		emptyLayer.y[0][index] = 0x00;
@@ -768,7 +795,7 @@ int WinMain(int argc, char** argv)
 	//Allocate 2D image storage and 3D compositing storage.
 	layers rawLayer, processedLayer;
 	rawLayer.prepare(voxelResolution, layerResolution, 3);
-	processedLayer.prepare(voxelResolution, voxelResolution, 3);
+	processedLayer.prepare(voxelResolution, voxelResolution, 1);
 
 	//Compute normalization scale.
 	glm::vec3 size = maximum - minimum;
@@ -798,7 +825,9 @@ int WinMain(int argc, char** argv)
 	//glm::mat4 & voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, -2.0f, 2.0f);
 	glm::mat4 voxelProjection;
 	
+	voxelViewX = glm::lookAt(glm::vec3(0.5f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
 	voxelViewY = glm::lookAt(glm::vec3(0.0f, 0.5f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	voxelViewZ = glm::lookAt(glm::vec3(0.0f, 0.0f, 0.5f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
 
 	glm::mat4 & voxelModel = voxelModelTranslate * voxelModelScale;
 
@@ -840,6 +869,65 @@ int WinMain(int argc, char** argv)
 	//GLfloat layerScalar, modelScalarMin, modelScalarMax;
 
 	unsigned char * coverageTexture = (unsigned char*) ::operator new(sizeof(unsigned char) * layerResolution * layerResolution * 3);
+
+	//Compute X layers.
+	for(GLuint layerIndex = 0; layerIndex < rawLayer.numberLayers; layerIndex++)
+	{
+		//layerScalar = ((((GLfloat) layerIndex + 1.0f) / (GLfloat) rawLayer.numberLayers) - 0.5f);
+		//modelScalarMin = ((minimum.y * modelScale) + -center.y);
+		//modelScalarMax = ((maximum.y * modelScale) + -center.y);
+		//logFile << "Layer\nLayer Scalar: " << layerScalar << "\nModel Scalar Min: " << modelScalarMin << "\nModel Scalar Max: " << modelScalarMax << "\n";
+		if( ((( (GLfloat) layerIndex + 2.0f) / (GLfloat) rawLayer.numberLayers) - 0.5f) < ((minimum.x * modelScale) + -center.x) )
+		{
+			free(processedLayer.x[layerIndex]);
+			processedLayer.x[layerIndex] = emptyLayer.x[0];
+		}
+		else if( ((( (GLfloat) layerIndex + 1.0f) / (GLfloat) rawLayer.numberLayers) - 0.5f) > ((maximum.x * modelScale) + -center.x) )
+		{
+			free(processedLayer.x[layerIndex]);
+			processedLayer.x[layerIndex] = emptyLayer.x[0];
+		}
+		else
+		{
+			startTime = glfwGetTime();
+			voxelStep = (((GLfloat) layerIndex + 1.0f) / (GLfloat) voxelResolution);
+			voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f + voxelStep - overlap, (1.0f / (GLfloat) voxelResolution) + voxelStep + overlap);
+
+			voxelMVP = voxelProjection * voxelViewX * voxelModel;
+
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisampleFramebuffer);
+
+			// Clear the screen.
+			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			// Enable shader_program in the state machine.
+			glUseProgram(voxelShaderProgram);
+
+			// Assign matrix uniform from shader to uniformvs.
+			glUniformMatrix4fv(voxelMVPUniform, 1, GL_FALSE, glm::value_ptr(voxelMVP));
+
+
+			// Iterate through the meshes.
+			for(GLuint index = 0; index < scene->mNumMeshes; index++)
+			{
+				// Set vao as active VAO in the state machine.
+				glBindVertexArray(meshes[index].vao);
+
+				// Draw the current VAO using the bound IBO.
+				glDrawElements(GL_TRIANGLES, meshes[index].numberIndices, GL_UNSIGNED_INT, 0);
+			}
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);
+			glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);
+			glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, coverageTexture);
+			calculateCoverage(coverageTexture, processedLayer.x[layerIndex], voxelResolution, voxelPrecision);
+			totalTime += glfwGetTime() - startTime;
+			saveBMP(string("layers\\x").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
+			saveBMP(string("layers\\px").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.x[layerIndex], voxelResolution, 1);
+		}
+	}
 
 	//Compute Y layers.
 	for(GLuint layerIndex = 0; layerIndex < rawLayer.numberLayers; layerIndex++)
@@ -896,7 +984,66 @@ int WinMain(int argc, char** argv)
 			calculateCoverage(coverageTexture, processedLayer.y[layerIndex], voxelResolution, voxelPrecision);
 			totalTime += glfwGetTime() - startTime;
 			saveBMP(string("layers\\y").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
-			saveBMP(string("layers\\py").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.y[layerIndex], voxelResolution, 3);
+			saveBMP(string("layers\\py").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.y[layerIndex], voxelResolution, 1);
+		}
+	}
+
+	//Compute Z layers.
+	for(GLuint layerIndex = 0; layerIndex < rawLayer.numberLayers; layerIndex++)
+	{
+		//layerScalar = ((((GLfloat) layerIndex + 1.0f) / (GLfloat) rawLayer.numberLayers) - 0.5f);
+		//modelScalarMin = ((minimum.y * modelScale) + -center.y);
+		//modelScalarMax = ((maximum.y * modelScale) + -center.y);
+		//logFile << "Layer\nLayer Scalar: " << layerScalar << "\nModel Scalar Min: " << modelScalarMin << "\nModel Scalar Max: " << modelScalarMax << "\n";
+		if( ((( (GLfloat) layerIndex + 2.0f) / (GLfloat) rawLayer.numberLayers) - 0.5f) < ((minimum.z * modelScale) + -center.z) )
+		{
+			free(processedLayer.z[layerIndex]);
+			processedLayer.z[layerIndex] = emptyLayer.z[0];
+		}
+		else if( ((( (GLfloat) layerIndex + 1.0f) / (GLfloat) rawLayer.numberLayers) - 0.5f) > ((maximum.z * modelScale) + -center.z) )
+		{
+			free(processedLayer.z[layerIndex]);
+			processedLayer.z[layerIndex] = emptyLayer.z[0];
+		}
+		else
+		{
+			startTime = glfwGetTime();
+			voxelStep = (((GLfloat) layerIndex + 1.0f) / (GLfloat) voxelResolution);
+			voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f + voxelStep - overlap, (1.0f / (GLfloat) voxelResolution) + voxelStep + overlap);
+
+			voxelMVP = voxelProjection * voxelViewZ * voxelModel;
+
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisampleFramebuffer);
+
+			// Clear the screen.
+			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			// Enable shader_program in the state machine.
+			glUseProgram(voxelShaderProgram);
+
+			// Assign matrix uniform from shader to uniformvs.
+			glUniformMatrix4fv(voxelMVPUniform, 1, GL_FALSE, glm::value_ptr(voxelMVP));
+
+
+			// Iterate through the meshes.
+			for(GLuint index = 0; index < scene->mNumMeshes; index++)
+			{
+				// Set vao as active VAO in the state machine.
+				glBindVertexArray(meshes[index].vao);
+
+				// Draw the current VAO using the bound IBO.
+				glDrawElements(GL_TRIANGLES, meshes[index].numberIndices, GL_UNSIGNED_INT, 0);
+			}
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);
+			glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);
+			glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, coverageTexture);
+			calculateCoverage(coverageTexture, processedLayer.z[layerIndex], voxelResolution, voxelPrecision);
+			totalTime += glfwGetTime() - startTime;
+			saveBMP(string("layers\\z").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
+			saveBMP(string("layers\\pz").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.z[layerIndex], voxelResolution, 1);
 		}
 	}
 
