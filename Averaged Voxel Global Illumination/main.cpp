@@ -43,6 +43,8 @@ GLdouble currentTime = 0.0;
 GLdouble startTime = 0.0;
 GLdouble endTime = 0.0;
 
+bool framebufferToBMP = false;
+
 
 // Callback to update framebuffer size and projection matrix from new window size.
 void windowSizeCallback(GLFWwindow * window, int newWidth, int newHeight)
@@ -151,6 +153,7 @@ void saveBMP(const char * filename, unsigned char * data, unsigned int size, GLu
 		}
 	}
 	imageOut.WriteToFile(filename);
+	delete(dataVector);
 }
 
 // Save unsigned char * to a .bmp file.
@@ -192,6 +195,7 @@ void saveBMP(char * filename, unsigned char * data, unsigned int width, unsigned
 		}
 	}
 	imageOut.WriteToFile(filename);
+	delete(dataVector);
 }
 
 
@@ -222,9 +226,8 @@ void calculateCoverage(unsigned char * coverageTexture, unsigned char * layer, G
 	for(GLuint index = 0; index < voxelResolution * voxelResolution; index++)
 	{
 		layer[index] = (unsigned char) ((GLfloat) sumLayer[index] / (GLfloat) (voxelPrecision * voxelPrecision));
-		//layer[(3 * index) + 1] = (unsigned char) ((GLfloat) sumLayer[index] / (GLfloat) (voxelPrecision * voxelPrecision));
-		//layer[(3 * index) + 2] = (unsigned char) ((GLfloat) sumLayer[index] / (GLfloat) (voxelPrecision * voxelPrecision));
 	}
+	delete(sumLayer);
 }
 
 
@@ -771,9 +774,9 @@ int WinMain(int argc, char** argv)
 	logFile << "\nVoxel Occlusion Generation\n-----------\n\n";
 
 
-	GLuint voxelResolution = 128;
+	GLuint voxelResolution = 256;
 	GLuint voxelPrecision = 4;
-	GLuint voxelSubPrecision = 16;
+	GLuint voxelSubPrecision = 8;
 	GLfloat overlap = 0.001f;
 	GLfloat voxelStep = 1.0f / voxelResolution;
 
@@ -793,8 +796,8 @@ int WinMain(int argc, char** argv)
 	glViewport(0, 0, layerResolution, layerResolution);
 
 	//Allocate 2D image storage and 3D compositing storage.
-	layers rawLayer, processedLayer;
-	rawLayer.prepare(voxelResolution, layerResolution, 3);
+	layers processedLayer;
+	//rawLayer.prepare(voxelResolution, layerResolution, 3);
 	processedLayer.prepare(voxelResolution, voxelResolution, 1);
 
 	//Compute normalization scale.
@@ -817,8 +820,8 @@ int WinMain(int argc, char** argv)
 
 	logFile << "Scaled Center\nX: " << center.x << "\nY: " << center.y << "\nZ: " << center.z << "\n";
 
-	glm::mat4 & voxelModelScale = glm::scale(glm::mat4(1.0f), glm::vec3(modelScale));
-	glm::mat4 & voxelModelTranslate = glm::translate(glm::mat4(1.0f), -center);
+	glm::mat4 voxelModelScale = glm::scale(glm::mat4(1.0f), glm::vec3(modelScale));
+	glm::mat4 voxelModelTranslate = glm::translate(glm::mat4(1.0f), -center);
 
 	glm::mat4 voxelViewX, voxelViewY, voxelViewZ;
 	//
@@ -829,9 +832,9 @@ int WinMain(int argc, char** argv)
 	voxelViewY = glm::lookAt(glm::vec3(0.0f, 0.5f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	voxelViewZ = glm::lookAt(glm::vec3(0.0f, 0.0f, 0.5f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
 
-	glm::mat4 & voxelModel = voxelModelTranslate * voxelModelScale;
+	glm::mat4 voxelModel = voxelModelTranslate * voxelModelScale;
 
-	glm::mat4 & voxelMVP = voxelProjection * voxelViewY * voxelModel;
+	glm::mat4 voxelMVP = voxelProjection * voxelViewY * voxelModel;
 
 	glClearError(15);
 
@@ -871,20 +874,20 @@ int WinMain(int argc, char** argv)
 	unsigned char * coverageTexture = (unsigned char*) ::operator new(sizeof(unsigned char) * layerResolution * layerResolution * 3);
 
 	//Compute X layers.
-	for(GLuint layerIndex = 0; layerIndex < rawLayer.numberLayers; layerIndex++)
+	for(GLuint layerIndex = 0; layerIndex < processedLayer.numberLayers; layerIndex++)
 	{
 		//layerScalar = ((((GLfloat) layerIndex + 1.0f) / (GLfloat) rawLayer.numberLayers) - 0.5f);
 		//modelScalarMin = ((minimum.y * modelScale) + -center.y);
 		//modelScalarMax = ((maximum.y * modelScale) + -center.y);
 		//logFile << "Layer\nLayer Scalar: " << layerScalar << "\nModel Scalar Min: " << modelScalarMin << "\nModel Scalar Max: " << modelScalarMax << "\n";
-		if( ((( (GLfloat) layerIndex + 2.0f) / (GLfloat) rawLayer.numberLayers) - 0.5f) < ((minimum.x * modelScale) + -center.x) )
+		if( ((( (GLfloat) layerIndex + 2.0f) / (GLfloat) processedLayer.numberLayers) - 0.5f) < ((minimum.x * modelScale) + -center.x) )
 		{
-			free(processedLayer.x[layerIndex]);
+			//delete(processedLayer.x[layerIndex]);
 			processedLayer.x[layerIndex] = emptyLayer.x[0];
 		}
-		else if( ((( (GLfloat) layerIndex + 1.0f) / (GLfloat) rawLayer.numberLayers) - 0.5f) > ((maximum.x * modelScale) + -center.x) )
+		else if( ((( (GLfloat) layerIndex + 1.0f) / (GLfloat) processedLayer.numberLayers) - 0.5f) > ((maximum.x * modelScale) + -center.x) )
 		{
-			free(processedLayer.x[layerIndex]);
+			//delete(processedLayer.x[layerIndex]);
 			processedLayer.x[layerIndex] = emptyLayer.x[0];
 		}
 		else
@@ -924,26 +927,29 @@ int WinMain(int argc, char** argv)
 			glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, coverageTexture);
 			calculateCoverage(coverageTexture, processedLayer.x[layerIndex], voxelResolution, voxelPrecision);
 			totalTime += glfwGetTime() - startTime;
-			saveBMP(string("layers\\x").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
-			saveBMP(string("layers\\px").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.x[layerIndex], voxelResolution, 1);
+			if(framebufferToBMP)
+			{
+				saveBMP(string("layers\\x").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
+				saveBMP(string("layers\\px").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.x[layerIndex], voxelResolution, 1);
+			}
 		}
 	}
 
 	//Compute Y layers.
-	for(GLuint layerIndex = 0; layerIndex < rawLayer.numberLayers; layerIndex++)
+	for(GLuint layerIndex = 0; layerIndex < processedLayer.numberLayers; layerIndex++)
 	{
 		//layerScalar = ((((GLfloat) layerIndex + 1.0f) / (GLfloat) rawLayer.numberLayers) - 0.5f);
 		//modelScalarMin = ((minimum.y * modelScale) + -center.y);
 		//modelScalarMax = ((maximum.y * modelScale) + -center.y);
 		//logFile << "Layer\nLayer Scalar: " << layerScalar << "\nModel Scalar Min: " << modelScalarMin << "\nModel Scalar Max: " << modelScalarMax << "\n";
-		if( ((( (GLfloat) layerIndex + 2.0f) / (GLfloat) rawLayer.numberLayers) - 0.5f) < ((minimum.y * modelScale) + -center.y) )
+		if( ((( (GLfloat) layerIndex + 2.0f) / (GLfloat) processedLayer.numberLayers) - 0.5f) < ((minimum.y * modelScale) + -center.y) )
 		{
-			free(processedLayer.y[layerIndex]);
+			delete(processedLayer.y[layerIndex]);
 			processedLayer.y[layerIndex] = emptyLayer.y[0];
 		}
-		else if( ((( (GLfloat) layerIndex + 1.0f) / (GLfloat) rawLayer.numberLayers) - 0.5f) > ((maximum.y * modelScale) + -center.y) )
+		else if( ((( (GLfloat) layerIndex + 1.0f) / (GLfloat) processedLayer.numberLayers) - 0.5f) > ((maximum.y * modelScale) + -center.y) )
 		{
-			free(processedLayer.y[layerIndex]);
+			delete(processedLayer.y[layerIndex]);
 			processedLayer.y[layerIndex] = emptyLayer.y[0];
 		}
 		else
@@ -983,26 +989,29 @@ int WinMain(int argc, char** argv)
 			glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, coverageTexture);
 			calculateCoverage(coverageTexture, processedLayer.y[layerIndex], voxelResolution, voxelPrecision);
 			totalTime += glfwGetTime() - startTime;
-			saveBMP(string("layers\\y").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
-			saveBMP(string("layers\\py").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.y[layerIndex], voxelResolution, 1);
+			if(framebufferToBMP)
+			{
+				saveBMP(string("layers\\y").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
+				saveBMP(string("layers\\py").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.y[layerIndex], voxelResolution, 1);
+			}
 		}
 	}
 
 	//Compute Z layers.
-	for(GLuint layerIndex = 0; layerIndex < rawLayer.numberLayers; layerIndex++)
+	for(GLuint layerIndex = 0; layerIndex < processedLayer.numberLayers; layerIndex++)
 	{
 		//layerScalar = ((((GLfloat) layerIndex + 1.0f) / (GLfloat) rawLayer.numberLayers) - 0.5f);
 		//modelScalarMin = ((minimum.y * modelScale) + -center.y);
 		//modelScalarMax = ((maximum.y * modelScale) + -center.y);
 		//logFile << "Layer\nLayer Scalar: " << layerScalar << "\nModel Scalar Min: " << modelScalarMin << "\nModel Scalar Max: " << modelScalarMax << "\n";
-		if( ((( (GLfloat) layerIndex + 2.0f) / (GLfloat) rawLayer.numberLayers) - 0.5f) < ((minimum.z * modelScale) + -center.z) )
+		if( ((( (GLfloat) layerIndex + 2.0f) / (GLfloat) processedLayer.numberLayers) - 0.5f) < ((minimum.z * modelScale) + -center.z) )
 		{
-			free(processedLayer.z[layerIndex]);
+			delete(processedLayer.z[layerIndex]);
 			processedLayer.z[layerIndex] = emptyLayer.z[0];
 		}
-		else if( ((( (GLfloat) layerIndex + 1.0f) / (GLfloat) rawLayer.numberLayers) - 0.5f) > ((maximum.z * modelScale) + -center.z) )
+		else if( ((( (GLfloat) layerIndex + 1.0f) / (GLfloat) processedLayer.numberLayers) - 0.5f) > ((maximum.z * modelScale) + -center.z) )
 		{
-			free(processedLayer.z[layerIndex]);
+			delete(processedLayer.z[layerIndex]);
 			processedLayer.z[layerIndex] = emptyLayer.z[0];
 		}
 		else
@@ -1042,10 +1051,15 @@ int WinMain(int argc, char** argv)
 			glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, coverageTexture);
 			calculateCoverage(coverageTexture, processedLayer.z[layerIndex], voxelResolution, voxelPrecision);
 			totalTime += glfwGetTime() - startTime;
-			saveBMP(string("layers\\z").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
-			saveBMP(string("layers\\pz").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.z[layerIndex], voxelResolution, 1);
+			if(framebufferToBMP)
+			{
+				saveBMP(string("layers\\z").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
+				saveBMP(string("layers\\pz").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.z[layerIndex], voxelResolution, 1);
+			}
 		}
 	}
+
+	delete(coverageTexture);
 
 	logFile << "\nTotal Time: " << totalTime << "\n";
 
