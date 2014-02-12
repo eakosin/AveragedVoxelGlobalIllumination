@@ -171,6 +171,40 @@ void saveBMP(char * filename, unsigned char * data, unsigned int width, unsigned
 }
 
 
+
+void calculateCoverage(unsigned char * coverageTexture, unsigned char * layer, GLuint voxelResolution, GLuint voxelPrecision)
+{
+	const GLuint fullRowSize = voxelResolution * voxelPrecision * 3;
+	const GLuint scaledRowSize = voxelResolution * voxelPrecision * voxelPrecision * 3;
+	GLuint relativeIndex, scaledCoverageIndex;
+	GLuint * sumLayer = (GLuint *) ::operator new(sizeof(GLuint) * voxelResolution * voxelResolution);
+	for(GLuint index = 0; index < voxelResolution * voxelResolution; index++)
+	{
+		sumLayer[index] = 0;
+	}
+	for(GLuint coverageIndex = 0; coverageIndex < voxelResolution * voxelResolution; coverageIndex++)
+	{
+		for(GLuint rawIndexY = 0; rawIndexY < voxelPrecision; rawIndexY++)
+		{
+			for(GLuint rawIndexX = 0; rawIndexX < voxelPrecision; rawIndexX++)
+			{
+				GLuint value = (coverageIndex / voxelResolution);
+				scaledCoverageIndex = (((coverageIndex / voxelResolution) * scaledRowSize) + ((coverageIndex % 128) * voxelPrecision * 3));
+				relativeIndex =  ( (scaledCoverageIndex + (rawIndexX * 3)) + (rawIndexY * fullRowSize) );
+				sumLayer[coverageIndex] += coverageTexture[relativeIndex];
+			}
+		}
+	}
+	for(GLuint index = 0; index < voxelResolution * voxelResolution; index++)
+	{
+		layer[3 * index] = (unsigned char) ((GLfloat) sumLayer[index] / (GLfloat) (voxelPrecision * voxelPrecision));
+		layer[(3 * index) + 1] = (unsigned char) ((GLfloat) sumLayer[index] / (GLfloat) (voxelPrecision * voxelPrecision));
+		layer[(3 * index) + 2] = (unsigned char) ((GLfloat) sumLayer[index] / (GLfloat) (voxelPrecision * voxelPrecision));
+	}
+}
+
+
+
 //Shader:
 //file - file containing shader code
 //string - std::string contents of file
@@ -713,7 +747,7 @@ int WinMain(int argc, char** argv)
 
 	GLuint voxelResolution = 128;
 	GLuint voxelPrecision = 4;
-	GLuint voxelSubPrecision = 0;
+	GLuint voxelSubPrecision = 16;
 	GLfloat overlap = 0.001f;
 	GLfloat voxelStep = 1.0f / voxelResolution;
 
@@ -722,7 +756,7 @@ int WinMain(int argc, char** argv)
 	layers emptyLayer;
 	emptyLayer.prepare(1, voxelResolution, 3);
 
-	for(GLuint index = 0; index < voxelResolution * 3; index++)
+	for(GLuint index = 0; index < voxelResolution * voxelResolution * 3; index++)
 	{
 		emptyLayer.x[0][index] = 0x00;
 		emptyLayer.y[0][index] = 0x00;
@@ -762,7 +796,7 @@ int WinMain(int argc, char** argv)
 	glm::mat4 voxelViewX, voxelViewY, voxelViewZ;
 	//
 	//glm::mat4 & voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, -2.0f, 2.0f);
-	glm::mat4 & voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f, 1.0f / (GLfloat) voxelResolution);
+	glm::mat4 voxelProjection;
 	
 	voxelViewY = glm::lookAt(glm::vec3(0.0f, 0.5f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
@@ -770,33 +804,42 @@ int WinMain(int argc, char** argv)
 
 	glm::mat4 & voxelMVP = voxelProjection * voxelViewY * voxelModel;
 
-	glClearError(5);
+	glClearError(15);
 
 	GLuint multisampleFramebuffer, coverageFramebuffer;
+	
+	GLuint multisampleFramebufferTexture, coverageFramebufferTexture;
+
 	glGenFramebuffers(1, &coverageFramebuffer);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
 	glFramebufferParameteri(coverageFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, layerResolution);
 	glFramebufferParameteri(coverageFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, layerResolution);
+	glGenTextures(1, &coverageFramebufferTexture);
+	glBindTexture(GL_TEXTURE_2D, coverageFramebufferTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, layerResolution, layerResolution, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, coverageFramebufferTexture, 0);
+	//logFile << glGetErrorReadable().c_str();
+
 	glGenFramebuffers(1, &multisampleFramebuffer);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisampleFramebuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, multisampleFramebuffer);
 	glFramebufferParameteri(multisampleFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, layerResolution);
 	glFramebufferParameteri(multisampleFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, layerResolution);
 	glFramebufferParameteri(multisampleFramebuffer, GL_FRAMEBUFFER_DEFAULT_SAMPLES, voxelSubPrecision);
-	logFile << glGetErrorReadable().c_str();
-	GLuint multisampleFramebufferTexture;
 	glGenTextures(1, &multisampleFramebufferTexture);
-	glBindTexture(GL_TEXTURE_2D, multisampleFramebufferTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, layerResolution, layerResolution, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-	//glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, voxelSubPrecision, GL_RGB, layerResolution, layerResolution, 0);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, multisampleFramebufferTexture, 0);
+	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, multisampleFramebufferTexture);
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, voxelSubPrecision, GL_RGB, layerResolution, layerResolution, 0);
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, multisampleFramebufferTexture, 0);
 
 
 	totalTime = 0;
 
 	//GLfloat layerScalar, modelScalarMin, modelScalarMax;
+
+	unsigned char * coverageTexture = (unsigned char*) ::operator new(sizeof(unsigned char) * layerResolution * layerResolution * 3);
 
 	//Compute Y layers.
 	for(GLuint layerIndex = 0; layerIndex < rawLayer.numberLayers; layerIndex++)
@@ -823,6 +866,8 @@ int WinMain(int argc, char** argv)
 
 			voxelMVP = voxelProjection * voxelViewY * voxelModel;
 
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisampleFramebuffer);
+
 			// Clear the screen.
 			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -833,7 +878,7 @@ int WinMain(int argc, char** argv)
 			// Assign matrix uniform from shader to uniformvs.
 			glUniformMatrix4fv(voxelMVPUniform, 1, GL_FALSE, glm::value_ptr(voxelMVP));
 
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisampleFramebuffer);
+
 			// Iterate through the meshes.
 			for(GLuint index = 0; index < scene->mNumMeshes; index++)
 			{
@@ -844,13 +889,14 @@ int WinMain(int argc, char** argv)
 				glDrawElements(GL_TRIANGLES, meshes[index].numberIndices, GL_UNSIGNED_INT, 0);
 			}
 			glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);
-			//glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);
-			//glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-			//glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);
-			glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, rawLayer.y[layerIndex]);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);
+			glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);
+			glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, coverageTexture);
+			calculateCoverage(coverageTexture, processedLayer.y[layerIndex], voxelResolution, voxelPrecision);
 			totalTime += glfwGetTime() - startTime;
-			saveBMP(string("layers\\").append(to_string(layerIndex).append(string("y.bmp"))).c_str(), rawLayer.y[layerIndex], layerResolution, 3);
-			//TODO: process layer
+			saveBMP(string("layers\\y").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
+			saveBMP(string("layers\\py").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.y[layerIndex], voxelResolution, 3);
 		}
 	}
 
