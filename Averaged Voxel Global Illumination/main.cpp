@@ -43,7 +43,7 @@ GLdouble currentTime = 0.0;
 GLdouble startTime = 0.0;
 GLdouble endTime = 0.0;
 
-bool framebufferToBMP = false;
+bool framebufferToBMP = true;
 
 
 // Callback to update framebuffer size and projection matrix from new window size.
@@ -216,8 +216,8 @@ void calculateCoverage(unsigned char * coverageTexture, unsigned char * layer, G
 		{
 			for(GLuint rawIndexX = 0; rawIndexX < voxelPrecision; rawIndexX++)
 			{
-				GLuint value = (coverageIndex / voxelResolution);
-				scaledCoverageIndex = (((coverageIndex / voxelResolution) * scaledRowSize) + ((coverageIndex % 128) * voxelPrecision * 3));
+				//GLuint value = (coverageIndex / voxelResolution);
+				scaledCoverageIndex = (((coverageIndex / voxelResolution) * scaledRowSize) + ((coverageIndex % voxelResolution) * voxelPrecision * 3));
 				relativeIndex =  ( (scaledCoverageIndex + (rawIndexX * 3)) + (rawIndexY * fullRowSize) );
 				sumLayer[coverageIndex] += coverageTexture[relativeIndex];
 			}
@@ -774,7 +774,7 @@ int WinMain(int argc, char** argv)
 	logFile << "\nVoxel Occlusion Generation\n-----------\n\n";
 
 
-	GLuint voxelResolution = 256;
+	GLuint voxelResolution = 128;
 	GLuint voxelPrecision = 4;
 	GLuint voxelSubPrecision = 8;
 	GLfloat overlap = 0.001f;
@@ -871,7 +871,7 @@ int WinMain(int argc, char** argv)
 
 	//GLfloat layerScalar, modelScalarMin, modelScalarMax;
 
-	unsigned char * coverageTexture = (unsigned char*) ::operator new(sizeof(unsigned char) * layerResolution * layerResolution * 3);
+	unsigned char * coverageTexture = (unsigned char *) ::operator new(sizeof(unsigned char) * layerResolution * layerResolution * 3);
 
 	//Compute X layers.
 	for(GLuint layerIndex = 0; layerIndex < processedLayer.numberLayers; layerIndex++)
@@ -1064,6 +1064,30 @@ int WinMain(int argc, char** argv)
 	logFile << "\nTotal Time: " << totalTime << "\n";
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+
+	//Build the 3D texture
+	glm::u8vec3 * occlusionVoxelTexture = (glm::u8vec3 *) ::operator new(sizeof(glm::u8vec3) * voxelResolution * voxelResolution * 3);
+
+	//Copy X values to red channel
+	for(GLuint layer = 0; layer < voxelResolution; layer++)
+	{
+		for(GLuint y = 0; y < voxelResolution; y++)
+		{
+			for(GLuint z = 0; z < voxelResolution; z++)
+			{
+
+				occlusionVoxelTexture[(z * voxelResolution * voxelResolution) + 
+										(y * voxelResolution) + 
+										(voxelResolution - layer)].r = 
+										processedLayer.x[layer][(y * voxelResolution) + z];
+			}
+		}
+	}
+
+	
+
+
 
 	glEnable(GL_MULTISAMPLE);
 	glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
