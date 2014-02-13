@@ -43,7 +43,7 @@ GLdouble currentTime = 0.0;
 GLdouble startTime = 0.0;
 GLdouble endTime = 0.0;
 
-bool framebufferToBMP = true;
+bool framebufferToBMP = false;
 
 
 // Callback to update framebuffer size and projection matrix from new window size.
@@ -775,8 +775,8 @@ int WinMain(int argc, char** argv)
 
 
 	GLuint voxelResolution = 128;
-	GLuint voxelPrecision = 4;
-	GLuint voxelSubPrecision = 8;
+	GLuint voxelPrecision = 8;
+	GLuint voxelSubPrecision = 4;
 	GLfloat overlap = 0.001f;
 	GLfloat voxelStep = 1.0f / voxelResolution;
 
@@ -929,7 +929,7 @@ int WinMain(int argc, char** argv)
 			totalTime += glfwGetTime() - startTime;
 			if(framebufferToBMP)
 			{
-				saveBMP(string("layers\\x").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
+				//saveBMP(string("layers\\x").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
 				saveBMP(string("layers\\px").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.x[layerIndex], voxelResolution, 1);
 			}
 		}
@@ -991,7 +991,7 @@ int WinMain(int argc, char** argv)
 			totalTime += glfwGetTime() - startTime;
 			if(framebufferToBMP)
 			{
-				saveBMP(string("layers\\y").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
+				//saveBMP(string("layers\\y").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
 				saveBMP(string("layers\\py").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.y[layerIndex], voxelResolution, 1);
 			}
 		}
@@ -1053,7 +1053,7 @@ int WinMain(int argc, char** argv)
 			totalTime += glfwGetTime() - startTime;
 			if(framebufferToBMP)
 			{
-				saveBMP(string("layers\\z").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
+				//saveBMP(string("layers\\z").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
 				saveBMP(string("layers\\pz").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.z[layerIndex], voxelResolution, 1);
 			}
 		}
@@ -1061,31 +1061,82 @@ int WinMain(int argc, char** argv)
 
 	delete(coverageTexture);
 
-	logFile << "\nTotal Time: " << totalTime << "\n";
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+	startTime = glfwGetTime();
 
 	//Build the 3D texture
-	glm::u8vec3 * occlusionVoxelTexture = (glm::u8vec3 *) ::operator new(sizeof(glm::u8vec3) * voxelResolution * voxelResolution * 3);
+	glm::u8vec3 * sceneVoxelOcclusionTexture = (glm::u8vec3 *) ::operator new(sizeof(glm::u8vec3) * voxelResolution * voxelResolution * voxelResolution);
 
 	//Copy X values to red channel
 	for(GLuint layer = 0; layer < voxelResolution; layer++)
 	{
 		for(GLuint y = 0; y < voxelResolution; y++)
 		{
-			for(GLuint z = 0; z < voxelResolution; z++)
+			for(GLuint x = 0; x < voxelResolution; x++)
 			{
-
-				occlusionVoxelTexture[(z * voxelResolution * voxelResolution) + 
+				sceneVoxelOcclusionTexture[(x * voxelResolution * voxelResolution) + 
 										(y * voxelResolution) + 
-										(voxelResolution - layer)].r = 
-										processedLayer.x[layer][(y * voxelResolution) + z];
+										(layer)].r = 
+										processedLayer.x[layer][(y * voxelResolution) + x];
 			}
 		}
 	}
 
-	
+	//Copy Y values to red channel
+	for(GLuint layer = 0; layer < voxelResolution; layer++)
+	{
+		for(GLuint y = 0; y < voxelResolution; y++)
+		{
+			for(GLuint x = 0; x < voxelResolution; x++)
+			{
+				sceneVoxelOcclusionTexture[(y * voxelResolution * voxelResolution) + 
+										((layer) * voxelResolution) + 
+										(x)].b = 
+										processedLayer.y[layer][(y * voxelResolution) + x];
+			}
+		}
+	}
+
+	//Copy Z values to red channel
+	for(GLuint layer = 0; layer < voxelResolution; layer++)
+	{
+		for(GLuint y = 0; y < voxelResolution; y++)
+		{
+			for(GLuint x = 0; x < voxelResolution; x++)
+			{
+				sceneVoxelOcclusionTexture[(layer * voxelResolution * voxelResolution) + 
+										((y) * voxelResolution) + 
+										(x)].g = 
+										processedLayer.z[layer][(y * voxelResolution) + x];
+			}
+		}
+	}
+
+	totalTime += glfwGetTime() - startTime;
+
+	logFile << "\nTotal Time: " << totalTime << "\n";
+
+	//unsigned char * arrayCastVoxel = (unsigned char *) sceneVoxelOcclusionTexture;
+
+	//for(GLuint layer = 0; layer < voxelResolution; layer++)
+	//{
+	//	saveBMP(string("layers\\final").append(to_string(layer).append(string(".bmp"))).c_str(), &arrayCastVoxel[layer * voxelResolution * voxelResolution * 3], voxelResolution, 3);
+	//}
+
+	GLuint voxelOcclusionTexture;
+	glGenTextures(1, &voxelOcclusionTexture);
+	glBindTexture(GL_TEXTURE_3D, voxelOcclusionTexture);
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB, voxelResolution, voxelResolution, voxelResolution, 0, GL_RGB, GL_UNSIGNED_BYTE, sceneVoxelOcclusionTexture);
+	glGenerateMipmap(GL_TEXTURE_3D);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+	GLint voxelOcclusionTextureUniform;
+	voxelOcclusionTextureUniform = glGetUniformLocation(mainShaderProgram, "voxelOcclusionTexture");
 
 
 
@@ -1255,6 +1306,10 @@ int WinMain(int argc, char** argv)
 		glUniform1i(diffuseTextureUniform, 0);
 		glUniform1i(normalTextureUniform, 1);
 		glUniform1i(opacityTextureUniform, 3);
+		glUniform1i(voxelOcclusionTextureUniform, 10);
+
+		glActiveTexture(GL_TEXTURE10);
+		glBindTexture(GL_TEXTURE_2D, voxelOcclusionTexture);
 
 		//startTime = glfwGetTime();
 

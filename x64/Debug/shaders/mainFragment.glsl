@@ -7,6 +7,7 @@ out vec4 fragment_color;
 uniform sampler2D diffuseTexture;
 uniform sampler2D normalTexture;
 uniform sampler2D opacityTexture;
+uniform sampler3D voxelOcclusionTexture;
 
 vec4 sample_color;
 vec3 intensity;
