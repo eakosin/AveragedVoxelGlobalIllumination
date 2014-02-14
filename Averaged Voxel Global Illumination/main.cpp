@@ -458,8 +458,9 @@ int WinMain(int argc, char** argv)
 	logFile << "OpenGL version supported " << version << "\n";
 
 	// Enable depth testing GL_LESS and backface culling GL_CCW.
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LESS);
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_CULL_FACE);
+	//glDepthFunc(GL_LESS);
 	//glEnable (GL_CULL_FACE);
 	//glCullFace (GL_BACK);
 	//glFrontFace (GL_CCW);
@@ -777,8 +778,8 @@ int WinMain(int argc, char** argv)
 	GLuint voxelResolution = 128;
 	GLuint voxelPrecision = 8;
 	GLuint voxelSubPrecision = 4;
-	GLfloat overlap = 0.001f;
 	GLfloat voxelStep = 1.0f / voxelResolution;
+	GLfloat overlap = voxelStep;
 
 	GLuint layerResolution = voxelResolution * voxelPrecision;
 
@@ -854,17 +855,17 @@ int WinMain(int argc, char** argv)
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, coverageFramebufferTexture, 0);
 	//logFile << glGetErrorReadable().c_str();
 
-	glGenFramebuffers(1, &multisampleFramebuffer);
-	glBindFramebuffer(GL_FRAMEBUFFER, multisampleFramebuffer);
-	glFramebufferParameteri(multisampleFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, layerResolution);
-	glFramebufferParameteri(multisampleFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, layerResolution);
-	glFramebufferParameteri(multisampleFramebuffer, GL_FRAMEBUFFER_DEFAULT_SAMPLES, voxelSubPrecision);
-	glGenTextures(1, &multisampleFramebufferTexture);
-	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, multisampleFramebufferTexture);
-	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, voxelSubPrecision, GL_RGB, layerResolution, layerResolution, 0);
-	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, multisampleFramebufferTexture, 0);
+	glGenFramebuffers(1, &multisampleFramebuffer);  //BREAKS NSIGHT
+	glBindFramebuffer(GL_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
+	glFramebufferParameteri(multisampleFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, layerResolution);  //BREAKS NSIGHT
+	glFramebufferParameteri(multisampleFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, layerResolution);  //BREAKS NSIGHT
+	glFramebufferParameteri(multisampleFramebuffer, GL_FRAMEBUFFER_DEFAULT_SAMPLES, voxelSubPrecision);  //BREAKS NSIGHT
+	glGenTextures(1, &multisampleFramebufferTexture);  //BREAKS NSIGHT
+	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, multisampleFramebufferTexture);  //BREAKS NSIGHT
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, voxelSubPrecision, GL_RGB, layerResolution, layerResolution, 0);  //BREAKS NSIGHT
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);  //BREAKS NSIGHT
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);  //BREAKS NSIGHT
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, multisampleFramebufferTexture, 0);  //BREAKS NSIGHT
 
 
 	totalTime = 0;
@@ -898,7 +899,8 @@ int WinMain(int argc, char** argv)
 
 			voxelMVP = voxelProjection * voxelViewX * voxelModel;
 
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisampleFramebuffer);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
+			//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
 
 			// Clear the screen.
 			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -920,10 +922,11 @@ int WinMain(int argc, char** argv)
 				// Draw the current VAO using the bound IBO.
 				glDrawElements(GL_TRIANGLES, meshes[index].numberIndices, GL_UNSIGNED_INT, 0);
 			}
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);
-			glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+			glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);  //BREAKS NSIGHT
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+			//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
 			glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, coverageTexture);
 			calculateCoverage(coverageTexture, processedLayer.x[layerIndex], voxelResolution, voxelPrecision);
 			totalTime += glfwGetTime() - startTime;
@@ -960,7 +963,8 @@ int WinMain(int argc, char** argv)
 
 			voxelMVP = voxelProjection * voxelViewY * voxelModel;
 
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisampleFramebuffer);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
+			//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
 
 			// Clear the screen.
 			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -982,10 +986,11 @@ int WinMain(int argc, char** argv)
 				// Draw the current VAO using the bound IBO.
 				glDrawElements(GL_TRIANGLES, meshes[index].numberIndices, GL_UNSIGNED_INT, 0);
 			}
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);
-			glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+			glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);  //BREAKS NSIGHT
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+			//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
 			glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, coverageTexture);
 			calculateCoverage(coverageTexture, processedLayer.y[layerIndex], voxelResolution, voxelPrecision);
 			totalTime += glfwGetTime() - startTime;
@@ -1022,7 +1027,8 @@ int WinMain(int argc, char** argv)
 
 			voxelMVP = voxelProjection * voxelViewZ * voxelModel;
 
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisampleFramebuffer);
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
+			//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
 
 			// Clear the screen.
 			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -1044,10 +1050,11 @@ int WinMain(int argc, char** argv)
 				// Draw the current VAO using the bound IBO.
 				glDrawElements(GL_TRIANGLES, meshes[index].numberIndices, GL_UNSIGNED_INT, 0);
 			}
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);
-			glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+			glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);  //BREAKS NSIGHT
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+			//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
 			glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, coverageTexture);
 			calculateCoverage(coverageTexture, processedLayer.z[layerIndex], voxelResolution, voxelPrecision);
 			totalTime += glfwGetTime() - startTime;
@@ -1132,14 +1139,23 @@ int WinMain(int argc, char** argv)
 	glGenerateMipmap(GL_TEXTURE_3D);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	//glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	//glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 	GLint voxelOcclusionTextureUniform;
 	voxelOcclusionTextureUniform = glGetUniformLocation(mainShaderProgram, "voxelOcclusionTexture");
 
+	GLint modelUniform, centerUniform, modelScaleUniform, voxelResolutionUniform;
+	modelUniform = glGetUniformLocation(mainShaderProgram, "model");
+	centerUniform = glGetUniformLocation(mainShaderProgram, "center");
+	modelScaleUniform = glGetUniformLocation(mainShaderProgram, "modelScale");
+	voxelResolutionUniform = glGetUniformLocation(mainShaderProgram, "voxelResolution");
 
 
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
 	glEnable(GL_MULTISAMPLE);
 	glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 	glViewport(0, 0, width, height);
@@ -1185,6 +1201,9 @@ int WinMain(int argc, char** argv)
 	//GLfloat voxelViewPosition = 0.0f;
 
 	bool inputLock = true;
+
+
+	glClearError(15);
 
 	// Main loop with exit on ESC or window close
 	while(!glfwGetKey(window, GLFW_KEY_ESCAPE) && !glfwWindowShouldClose(window))
@@ -1303,13 +1322,21 @@ int WinMain(int argc, char** argv)
 		// Assign matrix uniform from shader to uniformvs.
 		glUniformMatrix4fv(mainMVPUniform, 1, GL_FALSE, glm::value_ptr(mvp));
 
+		glUniformMatrix4fv(modelUniform, 1, GL_FALSE, glm::value_ptr(voxelModel));
+
 		glUniform1i(diffuseTextureUniform, 0);
 		glUniform1i(normalTextureUniform, 1);
 		glUniform1i(opacityTextureUniform, 3);
 		glUniform1i(voxelOcclusionTextureUniform, 10);
 
+		glUniform3fv(centerUniform, 1, glm::value_ptr(center));
+		glUniform1f(modelScaleUniform, modelScale);
+		glUniform1ui(voxelResolutionUniform, voxelResolution);
+
 		glActiveTexture(GL_TEXTURE10);
-		glBindTexture(GL_TEXTURE_2D, voxelOcclusionTexture);
+		glBindTexture(GL_TEXTURE_3D, voxelOcclusionTexture);
+
+		//logFile << glGetErrorReadable().c_str();
 
 		//startTime = glfwGetTime();
 

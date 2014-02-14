@@ -8,6 +8,7 @@ layout(location = 4) in vec3 vertex_bitangent;
 
 uniform mat4 mvp;
 
+out vec3 position;
 out vec3 normal;
 out vec2 uv;
 
@@ -16,5 +17,6 @@ void main()
 	//color = vertex_normal;
 	normal = vertex_normal;
 	uv = vertex_uv;
+	position = vertex_position;
 	gl_Position = mvp * vec4(vertex_position, 1.0);
 }
