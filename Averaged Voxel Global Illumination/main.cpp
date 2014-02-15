@@ -230,6 +230,14 @@ void calculateCoverage(unsigned char * coverageTexture, unsigned char * layer, G
 	delete(sumLayer);
 }
 
+void copyCoverage(unsigned char * coverageTexture, unsigned char * layer, GLuint voxelResolution)
+{
+	for(GLuint index = 0; index < voxelResolution * voxelResolution; index++)
+	{
+		layer[index] = coverageTexture[index * 3];
+	}
+}
+
 
 
 //Shader:
@@ -776,10 +784,11 @@ int WinMain(int argc, char** argv)
 
 
 	GLuint voxelResolution = 128;
-	GLuint voxelPrecision = 8;
-	GLuint voxelSubPrecision = 4;
+	GLuint voxelPrecision = 4;
+	GLuint voxelSubPrecision = 8;
 	GLfloat voxelStep = 1.0f / voxelResolution;
-	GLfloat overlap = voxelStep;
+	GLfloat overlap = voxelStep / 8.0f;
+	bool useLinearResampling = false;
 
 	GLuint layerResolution = voxelResolution * voxelPrecision;
 
@@ -843,18 +852,6 @@ int WinMain(int argc, char** argv)
 	
 	GLuint multisampleFramebufferTexture, coverageFramebufferTexture;
 
-	glGenFramebuffers(1, &coverageFramebuffer);
-	glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
-	glFramebufferParameteri(coverageFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, layerResolution);
-	glFramebufferParameteri(coverageFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, layerResolution);
-	glGenTextures(1, &coverageFramebufferTexture);
-	glBindTexture(GL_TEXTURE_2D, coverageFramebufferTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, layerResolution, layerResolution, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, coverageFramebufferTexture, 0);
-	//logFile << glGetErrorReadable().c_str();
-
 	glGenFramebuffers(1, &multisampleFramebuffer);  //BREAKS NSIGHT
 	glBindFramebuffer(GL_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
 	glFramebufferParameteri(multisampleFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, layerResolution);  //BREAKS NSIGHT
@@ -867,6 +864,34 @@ int WinMain(int argc, char** argv)
 	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);  //BREAKS NSIGHT
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, multisampleFramebufferTexture, 0);  //BREAKS NSIGHT
 
+	if(useLinearResampling)
+	{
+		glGenFramebuffers(1, &coverageFramebuffer);
+		glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
+		glFramebufferParameteri(coverageFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, voxelResolution);
+		glFramebufferParameteri(coverageFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, voxelResolution);
+		glGenTextures(1, &coverageFramebufferTexture);
+		glBindTexture(GL_TEXTURE_2D, coverageFramebufferTexture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, voxelResolution, voxelResolution, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, coverageFramebufferTexture, 0);
+		//logFile << glGetErrorReadable().c_str();
+	}
+	else
+	{
+		glGenFramebuffers(1, &coverageFramebuffer);
+		glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
+		glFramebufferParameteri(coverageFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, layerResolution);
+		glFramebufferParameteri(coverageFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, layerResolution);
+		glGenTextures(1, &coverageFramebufferTexture);
+		glBindTexture(GL_TEXTURE_2D, coverageFramebufferTexture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, layerResolution, layerResolution, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, coverageFramebufferTexture, 0);
+		//logFile << glGetErrorReadable().c_str();
+	}
 
 	totalTime = 0;
 
@@ -894,7 +919,7 @@ int WinMain(int argc, char** argv)
 		else
 		{
 			startTime = glfwGetTime();
-			voxelStep = (((GLfloat) layerIndex + 1.0f) / (GLfloat) voxelResolution);
+			voxelStep = (((GLfloat) layerIndex + 1.0f) / (GLfloat) voxelResolution) - (1.0f / voxelResolution);
 			voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f + voxelStep - overlap, (1.0f / (GLfloat) voxelResolution) + voxelStep + overlap);
 
 			voxelMVP = voxelProjection * voxelViewX * voxelModel;
@@ -922,13 +947,26 @@ int WinMain(int argc, char** argv)
 				// Draw the current VAO using the bound IBO.
 				glDrawElements(GL_TRIANGLES, meshes[index].numberIndices, GL_UNSIGNED_INT, 0);
 			}
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
-			glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);  //BREAKS NSIGHT
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
-			//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
-			glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, coverageTexture);
-			calculateCoverage(coverageTexture, processedLayer.x[layerIndex], voxelResolution, voxelPrecision);
+			if(useLinearResampling)
+			{
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
+				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+				glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, voxelResolution, voxelResolution, GL_COLOR_BUFFER_BIT, GL_LINEAR);  //BREAKS NSIGHT
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+				//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
+				glReadPixels(0, 0, voxelResolution, voxelResolution, GL_RGB, GL_UNSIGNED_BYTE, coverageTexture);
+				copyCoverage(coverageTexture, processedLayer.x[layerIndex], voxelResolution);
+			}
+			else
+			{
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
+				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+				glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);  //BREAKS NSIGHT
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+				//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
+				glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, coverageTexture);
+				calculateCoverage(coverageTexture, processedLayer.x[layerIndex], voxelResolution, voxelPrecision);
+			}
 			totalTime += glfwGetTime() - startTime;
 			if(framebufferToBMP)
 			{
@@ -958,7 +996,7 @@ int WinMain(int argc, char** argv)
 		else
 		{
 			startTime = glfwGetTime();
-			voxelStep = (((GLfloat) layerIndex + 1.0f) / (GLfloat) voxelResolution);
+			voxelStep = (((GLfloat) layerIndex + 1.0f) / (GLfloat) voxelResolution) - (1.0f / voxelResolution);
 			voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f + voxelStep - overlap, (1.0f / (GLfloat) voxelResolution) + voxelStep + overlap);
 
 			voxelMVP = voxelProjection * voxelViewY * voxelModel;
@@ -986,13 +1024,26 @@ int WinMain(int argc, char** argv)
 				// Draw the current VAO using the bound IBO.
 				glDrawElements(GL_TRIANGLES, meshes[index].numberIndices, GL_UNSIGNED_INT, 0);
 			}
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
-			glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);  //BREAKS NSIGHT
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
-			//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
-			glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, coverageTexture);
-			calculateCoverage(coverageTexture, processedLayer.y[layerIndex], voxelResolution, voxelPrecision);
+			if(useLinearResampling)
+			{
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
+				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+				glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, voxelResolution, voxelResolution, GL_COLOR_BUFFER_BIT, GL_LINEAR);  //BREAKS NSIGHT
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+				//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
+				glReadPixels(0, 0, voxelResolution, voxelResolution, GL_RGB, GL_UNSIGNED_BYTE, coverageTexture);
+				copyCoverage(coverageTexture, processedLayer.y[layerIndex], voxelResolution);
+			}
+			else
+			{
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
+				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+				glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);  //BREAKS NSIGHT
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+				//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
+				glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, coverageTexture);
+				calculateCoverage(coverageTexture, processedLayer.y[layerIndex], voxelResolution, voxelPrecision);
+			}
 			totalTime += glfwGetTime() - startTime;
 			if(framebufferToBMP)
 			{
@@ -1022,7 +1073,7 @@ int WinMain(int argc, char** argv)
 		else
 		{
 			startTime = glfwGetTime();
-			voxelStep = (((GLfloat) layerIndex + 1.0f) / (GLfloat) voxelResolution);
+			voxelStep = (((GLfloat) layerIndex + 1.0f) / (GLfloat) voxelResolution) - (1.0f / voxelResolution);
 			voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f + voxelStep - overlap, (1.0f / (GLfloat) voxelResolution) + voxelStep + overlap);
 
 			voxelMVP = voxelProjection * voxelViewZ * voxelModel;
@@ -1050,13 +1101,26 @@ int WinMain(int argc, char** argv)
 				// Draw the current VAO using the bound IBO.
 				glDrawElements(GL_TRIANGLES, meshes[index].numberIndices, GL_UNSIGNED_INT, 0);
 			}
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
-			glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);  //BREAKS NSIGHT
-			glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
-			//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
-			glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, coverageTexture);
-			calculateCoverage(coverageTexture, processedLayer.z[layerIndex], voxelResolution, voxelPrecision);
+			if(useLinearResampling)
+			{
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
+				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+				glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, voxelResolution, voxelResolution, GL_COLOR_BUFFER_BIT, GL_LINEAR);  //BREAKS NSIGHT
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+				//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
+				glReadPixels(0, 0, voxelResolution, voxelResolution, GL_RGB, GL_UNSIGNED_BYTE, coverageTexture);
+				copyCoverage(coverageTexture, processedLayer.z[layerIndex], voxelResolution);
+			}
+			else
+			{
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
+				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+				glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);  //BREAKS NSIGHT
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+				//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
+				glReadPixels(0, 0, layerResolution, layerResolution, GL_RGB, GL_UNSIGNED_BYTE, coverageTexture);
+				calculateCoverage(coverageTexture, processedLayer.z[layerIndex], voxelResolution, voxelPrecision);
+			}
 			totalTime += glfwGetTime() - startTime;
 			if(framebufferToBMP)
 			{
@@ -1083,39 +1147,39 @@ int WinMain(int argc, char** argv)
 		{
 			for(GLuint x = 0; x < voxelResolution; x++)
 			{
-				sceneVoxelOcclusionTexture[(x * voxelResolution * voxelResolution) + 
-										(y * voxelResolution) + 
-										(layer)].r = 
+				sceneVoxelOcclusionTexture[((x) * voxelResolution * voxelResolution) + 
+										((voxelResolution - 1 - y) * voxelResolution) + 
+										(voxelResolution - 1 - layer)].r = 
 										processedLayer.x[layer][(y * voxelResolution) + x];
 			}
 		}
 	}
 
-	//Copy Y values to red channel
+	//Copy Y values to green channel
 	for(GLuint layer = 0; layer < voxelResolution; layer++)
 	{
 		for(GLuint y = 0; y < voxelResolution; y++)
 		{
 			for(GLuint x = 0; x < voxelResolution; x++)
 			{
-				sceneVoxelOcclusionTexture[(y * voxelResolution * voxelResolution) + 
-										((layer) * voxelResolution) + 
-										(x)].b = 
+				sceneVoxelOcclusionTexture[((voxelResolution - 1 - y) * voxelResolution * voxelResolution) + 
+										((voxelResolution - 1 - layer) * voxelResolution) + 
+										(voxelResolution - 1 - x)].g = 
 										processedLayer.y[layer][(y * voxelResolution) + x];
 			}
 		}
 	}
 
-	//Copy Z values to red channel
+	//Copy Z values to blue channel
 	for(GLuint layer = 0; layer < voxelResolution; layer++)
 	{
 		for(GLuint y = 0; y < voxelResolution; y++)
 		{
 			for(GLuint x = 0; x < voxelResolution; x++)
 			{
-				sceneVoxelOcclusionTexture[(layer * voxelResolution * voxelResolution) + 
-										((y) * voxelResolution) + 
-										(x)].g = 
+				sceneVoxelOcclusionTexture[((voxelResolution - 1 - layer) * voxelResolution * voxelResolution) + 
+										((voxelResolution - 1 - y) * voxelResolution) + 
+										(voxelResolution - 1 - x)].b = 
 										processedLayer.z[layer][(y * voxelResolution) + x];
 			}
 		}
@@ -1171,7 +1235,8 @@ int WinMain(int argc, char** argv)
 	GLfloat verticalAngle = 5.84226465f;
 
 	// Speed of camera controls.
-	GLfloat speed = 200.0f;
+	GLfloat baseSpeed = 200.0f;
+	GLfloat speed = baseSpeed;
 	GLfloat mouseSpeed = 0.15f;
 
 
@@ -1257,6 +1322,14 @@ int WinMain(int argc, char** argv)
 		up = glm::cross(right, forward);
 
 		// Change position using directional vectors.
+		if(glfwGetKey(window, GLFW_KEY_LEFT_SHIFT))
+		{
+			speed = baseSpeed * 3.0f;
+		}
+		else
+		{
+			speed = baseSpeed;
+		}
 		if(glfwGetKey(window, GLFW_KEY_W))
 		{
 			position += forward * deltaFrameTime * speed;

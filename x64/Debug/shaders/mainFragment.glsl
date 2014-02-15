@@ -35,11 +35,11 @@ void main()
 	sample_color = texture(diffuseTexture, uv);
 	sample_color = vec4(0.0, 0.0, 0.0, sample_color.a);
 
-	voxelSpace = 1.0 - ((model * vec4(position, 1.0)) + 0.5);
+	voxelSpace = ((model * vec4(position, 1.0)) + 0.5);
 	//voxelSpace = (position * 0.000268756) - center + 0.5;
 
 	voxelSample = textureLod(voxelOcclusionTexture, voxelSpace.xyz, 0).rgb;
-	sample_color = sample_color + vec4(voxelSample, sample_color.a);
+	sample_color = sample_color + vec4(voxelSample.rgb, sample_color.a);
 
 
 
@@ -53,7 +53,8 @@ void main()
 	{
 		 sample_color.a = abs(clamp(lod.y, 1.0, 100.0)) * 0.85 * (sample_color.a - 0.5) + 0.5;
 	}
-	fragment_color = vec4(sample_color.rgb * intensity, sample_color.a);
+	//fragment_color = vec4(sample_color.rgb * intensity, sample_color.a);
+	fragment_color = vec4(sample_color.rgb, sample_color.a);
 	//if(fragment_color.a < 0.5)
 	//{
 	//	discard;
