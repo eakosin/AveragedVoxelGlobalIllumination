@@ -838,9 +838,9 @@ int WinMain(int argc, char** argv)
 	//glm::mat4 & voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, -2.0f, 2.0f);
 	glm::mat4 voxelProjection;
 	
-	voxelViewX = glm::lookAt(glm::vec3(0.5f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
-	voxelViewY = glm::lookAt(glm::vec3(0.0f, 0.5f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	voxelViewZ = glm::lookAt(glm::vec3(0.0f, 0.0f, 0.5f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, -1.0f, 0.0f));
+	voxelViewX = glm::lookAt(glm::vec3(0.5f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	voxelViewY = glm::lookAt(glm::vec3(0.0f, 0.5f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+	voxelViewZ = glm::lookAt(glm::vec3(0.0f, 0.0f, 0.5f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
 	glm::mat4 voxelModel = voxelModelTranslate * voxelModelScale;
 
@@ -1181,8 +1181,8 @@ int WinMain(int argc, char** argv)
 		{
 			for(GLuint x = 0; x < voxelResolution; x++)
 			{
-				sceneVoxelOcclusionTexture[((x) * voxelResolution * voxelResolution) + 
-										((voxelResolution - 1 - y) * voxelResolution) + 
+				sceneVoxelOcclusionTexture[((voxelResolution - 1 - x) * voxelResolution * voxelResolution) + 
+										((y) * voxelResolution) + 
 										(voxelResolution - 1 - layer)].r = 
 										processedLayer.x[layer][(y * voxelResolution) + x];
 			}
@@ -1198,8 +1198,8 @@ int WinMain(int argc, char** argv)
 			{
 				sceneVoxelOcclusionTexture[((voxelResolution - 1 - y) * voxelResolution * voxelResolution) + 
 										((voxelResolution - 1 - layer) * voxelResolution) + 
-										(voxelResolution - 1 - x)].g = 
-										processedLayer.y[layer][((voxelResolution - 1 - y) * voxelResolution) + x];
+										(x)].g = 
+										processedLayer.y[layer][((y) * voxelResolution) + x];
 			}
 		}
 	}
@@ -1212,8 +1212,8 @@ int WinMain(int argc, char** argv)
 			for(GLuint x = 0; x < voxelResolution; x++)
 			{
 				sceneVoxelOcclusionTexture[((voxelResolution - 1 - layer) * voxelResolution * voxelResolution) + 
-										((voxelResolution - 1 - y) * voxelResolution) + 
-										(voxelResolution - 1 - x)].b = 
+										((y) * voxelResolution) + 
+										(x)].b = 
 										processedLayer.z[layer][(y * voxelResolution) + x];
 			}
 		}
