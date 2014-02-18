@@ -10,6 +10,8 @@ uniform mat4 mvp;
 
 out vec3 position;
 out vec3 normal;
+out vec3 tangent;
+out vec3 bitangent;
 out vec2 uv;
 
 void main()
@@ -18,5 +20,7 @@ void main()
 	normal = vertex_normal;
 	uv = vertex_uv;
 	position = vertex_position;
+	tangent = vertex_tangent;
+	bitangent = vertex_bitangent;
 	gl_Position = mvp * vec4(vertex_position, 1.0);
 }

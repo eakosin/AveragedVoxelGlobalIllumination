@@ -784,8 +784,8 @@ int WinMain(int argc, char** argv)
 
 
 	GLuint voxelResolution = 128;
-	GLuint voxelPrecision = 4;
-	GLuint voxelSubPrecision = 8;
+	GLuint voxelPrecision = 6;
+	GLuint voxelSubPrecision = 16;
 	GLfloat voxelStep = 1.0f / voxelResolution;
 	GLfloat overlap = voxelStep / 8.0f;
 	bool useLinearResampling = false;
@@ -1251,6 +1251,9 @@ int WinMain(int argc, char** argv)
 	modelScaleUniform = glGetUniformLocation(mainShaderProgram, "modelScale");
 	voxelResolutionUniform = glGetUniformLocation(mainShaderProgram, "voxelResolution");
 
+	GLint useAmbientOcclusionUniform;
+	useAmbientOcclusionUniform = glGetUniformLocation(mainShaderProgram, "useAmbientOcclusion");
+
 
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
@@ -1301,6 +1304,7 @@ int WinMain(int argc, char** argv)
 
 	bool inputLock = true;
 
+	bool useAmbientOcclusion = true;
 
 	glClearError(15);
 
@@ -1391,20 +1395,20 @@ int WinMain(int argc, char** argv)
 
 
 
-		//if(glfwGetKey(window, GLFW_KEY_Q) && inputLock)
-		//{
-		//	voxelViewPosition -= 1.0f / voxelResolution;
-		//	inputLock = false;
-		//}
+		if(glfwGetKey(window, GLFW_KEY_1) && inputLock)
+		{
+			useAmbientOcclusion = !useAmbientOcclusion;
+			inputLock = false;
+		}
 		//if(glfwGetKey(window, GLFW_KEY_E) && inputLock)
 		//{
 		//	voxelViewPosition += 1.0f / voxelResolution;
 		//	inputLock = false;
 		//}
-		//if((!glfwGetKey(window, GLFW_KEY_Q) && !glfwGetKey(window, GLFW_KEY_E)) && !inputLock)
-		//{
-		//	inputLock = true;
-		//}
+		if(!glfwGetKey(window, GLFW_KEY_1) && !inputLock)
+		{
+			inputLock = true;
+		}
 
 
 		//Voxel Test Perspective
@@ -1435,6 +1439,8 @@ int WinMain(int argc, char** argv)
 		glUniform1i(normalTextureUniform, 1);
 		glUniform1i(opacityTextureUniform, 3);
 		glUniform1i(voxelOcclusionTextureUniform, 10);
+
+		glUniform1i(useAmbientOcclusionUniform, (int) useAmbientOcclusion);
 
 		glUniform3fv(centerUniform, 1, glm::value_ptr(center));
 		glUniform1f(modelScaleUniform, modelScale);
