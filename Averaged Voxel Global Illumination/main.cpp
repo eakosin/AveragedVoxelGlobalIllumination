@@ -783,8 +783,8 @@ int WinMain(int argc, char** argv)
 	logFile << "\nVoxel Occlusion Generation\n-----------\n\n";
 
 
-	GLuint voxelResolution = 128;
-	GLuint voxelPrecision = 6;
+	GLuint voxelResolution = 256;
+	GLuint voxelPrecision = 4;
 	GLuint voxelSubPrecision = 16;
 	GLfloat voxelStep = 1.0f / voxelResolution;
 	GLfloat overlap = voxelStep / 8.0f;
@@ -1219,6 +1219,7 @@ int WinMain(int argc, char** argv)
 		}
 	}
 
+
 	totalTime += glfwGetTime() - startTime;
 
 	logFile << "\nTotal Time: " << totalTime << "\n";
@@ -1251,8 +1252,15 @@ int WinMain(int argc, char** argv)
 	modelScaleUniform = glGetUniformLocation(mainShaderProgram, "modelScale");
 	voxelResolutionUniform = glGetUniformLocation(mainShaderProgram, "voxelResolution");
 
-	GLint useAmbientOcclusionUniform;
+	GLint useAmbientOcclusionUniform, useAtmosphericOcclusionUniform, useTextureUniform;
 	useAmbientOcclusionUniform = glGetUniformLocation(mainShaderProgram, "useAmbientOcclusion");
+	useAtmosphericOcclusionUniform = glGetUniformLocation(mainShaderProgram, "useAtmosphericOcclusion");
+	useTextureUniform = glGetUniformLocation(mainShaderProgram, "useTexture");
+
+	GLint shiftXUniform, shiftYUniform, shiftZUniform;
+	shiftXUniform = glGetUniformLocation(mainShaderProgram, "shiftX");
+	shiftYUniform = glGetUniformLocation(mainShaderProgram, "shiftY");
+	shiftZUniform = glGetUniformLocation(mainShaderProgram, "shiftZ");
 
 
 	glEnable(GL_DEPTH_TEST);
@@ -1304,7 +1312,13 @@ int WinMain(int argc, char** argv)
 
 	bool inputLock = true;
 
+	bool useTexture = true;
 	bool useAmbientOcclusion = true;
+	bool useAtmosphericOcclusion = false;
+
+	int shiftX = 0;
+	int shiftY = 0;
+	int shiftZ = 0;
 
 	glClearError(15);
 
@@ -1393,11 +1407,25 @@ int WinMain(int argc, char** argv)
 			position += up * deltaFrameTime * speed;
 		}
 
-
-
+		if(glfwGetKey(window, GLFW_KEY_R))
+		{
+			shiftX = 0;
+			shiftY = 0;
+			shiftZ = 0;
+		}
+		if(glfwGetKey(window, GLFW_KEY_T) && inputLock)
+		{
+			useTexture = !useTexture;
+			inputLock = false;
+		}
 		if(glfwGetKey(window, GLFW_KEY_1) && inputLock)
 		{
 			useAmbientOcclusion = !useAmbientOcclusion;
+			inputLock = false;
+		}
+		if(glfwGetKey(window, GLFW_KEY_2) && inputLock)
+		{
+			useAtmosphericOcclusion = !useAtmosphericOcclusion;
 			inputLock = false;
 		}
 		//if(glfwGetKey(window, GLFW_KEY_E) && inputLock)
@@ -1405,7 +1433,45 @@ int WinMain(int argc, char** argv)
 		//	voxelViewPosition += 1.0f / voxelResolution;
 		//	inputLock = false;
 		//}
-		if(!glfwGetKey(window, GLFW_KEY_1) && !inputLock)
+		if(glfwGetKey(window, GLFW_KEY_UP) && inputLock)
+		{
+			shiftZ += 1;
+			inputLock = false;
+		}
+		if(glfwGetKey(window, GLFW_KEY_DOWN) && inputLock)
+		{
+			shiftZ -= 1;
+			inputLock = false;
+		}
+		if(glfwGetKey(window, GLFW_KEY_RIGHT) && inputLock)
+		{
+			shiftX += 1;
+			inputLock = false;
+		}
+		if(glfwGetKey(window, GLFW_KEY_LEFT) && inputLock)
+		{
+			shiftX-= 1;
+			inputLock = false;
+		}
+		if(glfwGetKey(window, GLFW_KEY_PAGE_UP) && inputLock)
+		{
+			shiftY += 1;
+			inputLock = false;
+		}
+		if(glfwGetKey(window, GLFW_KEY_PAGE_DOWN) && inputLock)
+		{
+			shiftY -= 1;
+			inputLock = false;
+		}
+		if(!glfwGetKey(window, GLFW_KEY_T) && 
+			!glfwGetKey(window, GLFW_KEY_1) && 
+			!glfwGetKey(window, GLFW_KEY_2) && 
+			!glfwGetKey(window, GLFW_KEY_UP) && 
+			!glfwGetKey(window, GLFW_KEY_DOWN) && 
+			!glfwGetKey(window, GLFW_KEY_RIGHT) && 
+			!glfwGetKey(window, GLFW_KEY_LEFT) && 
+			!glfwGetKey(window, GLFW_KEY_PAGE_UP) && 
+			!glfwGetKey(window, GLFW_KEY_PAGE_DOWN) && !inputLock)
 		{
 			inputLock = true;
 		}
@@ -1441,10 +1507,15 @@ int WinMain(int argc, char** argv)
 		glUniform1i(voxelOcclusionTextureUniform, 10);
 
 		glUniform1i(useAmbientOcclusionUniform, (int) useAmbientOcclusion);
+		glUniform1i(useAtmosphericOcclusionUniform, (int) useAtmosphericOcclusion);
+		glUniform1i(useTextureUniform, (int) useTexture);
 
 		glUniform3fv(centerUniform, 1, glm::value_ptr(center));
 		glUniform1f(modelScaleUniform, modelScale);
 		glUniform1ui(voxelResolutionUniform, voxelResolution);
+		glUniform1i(shiftXUniform, shiftX);
+		glUniform1i(shiftYUniform, shiftY);
+		glUniform1i(shiftZUniform, shiftZ);
 
 		glActiveTexture(GL_TEXTURE10);
 		glBindTexture(GL_TEXTURE_3D, voxelOcclusionTexture);
