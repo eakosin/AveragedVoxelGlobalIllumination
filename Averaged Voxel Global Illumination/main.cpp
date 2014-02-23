@@ -112,6 +112,65 @@ void glClearError(GLuint iterations)
 	}
 }
 
+class coordinateTransformation
+{
+	private:
+		GLuint width2;
+		GLuint height2;
+		GLuint width3;
+		GLuint height3;
+		GLuint depth3;
+	public:
+		GLuint convert2(GLuint x, GLuint y)
+		{
+			GLuint retval = ((y * width2) + 
+					x);
+			return retval;
+		}
+		void set2(GLuint widthIn, GLuint heightIn)
+		{
+			width2 = widthIn;
+			height2 = heightIn;
+		}
+		GLuint convert3(GLuint x, GLuint y, GLuint z)
+		{
+			GLuint retval = ((z * height3 * width3) + 
+					(y * width3) +
+					x);
+			return retval;
+		}
+		void set3(GLuint widthIn, GLuint heightIn, GLuint depthIn)
+		{
+			width3 = widthIn;
+			height3 = heightIn;
+			depth3 = depthIn;
+		}
+};
+
+void framebufferTo3DImageSpace(glm::u8vec3 * voxelTexture, glm::u8vec3 * lightTexture, GLfloat * depthTexture, GLuint voxelResolution)
+{
+	for(GLuint index = 0; index < voxelResolution * voxelResolution * voxelResolution; index++)
+	{
+		voxelTexture[index] = glm::u8vec3(0.0f, 0.0f, 0.0f);
+	}
+	coordinateTransformation ct;
+	ct.set2(voxelResolution, voxelResolution);
+	ct.set3(voxelResolution, voxelResolution, voxelResolution);
+	GLuint z;
+	GLfloat depth;
+	for(GLuint y = 0; y < voxelResolution; y++)
+	{
+		for(GLuint x = 0; x < voxelResolution; x++)
+		{
+			depth = depthTexture[ct.convert2(x,y)];
+			z = (GLuint) glm::clamp((((depth)) * voxelResolution), 0.0f, (GLfloat) (voxelResolution - 1));
+			voxelTexture[ct.convert3(x,(voxelResolution - 1 - z),y)] = lightTexture[ct.convert2(x,y)];
+		}
+	}
+}
+
+
+
 
 
 // Save unsigned char * to a .bmp file.
@@ -783,7 +842,7 @@ int WinMain(int argc, char** argv)
 	logFile << "\nVoxel Occlusion Generation\n-----------\n\n";
 
 
-	GLuint voxelResolution = 256;
+	GLuint voxelResolution = 128;
 	GLuint voxelPrecision = 4;
 	GLuint voxelSubPrecision = 16;
 	GLfloat voxelStep = 1.0f / voxelResolution;
@@ -1243,8 +1302,9 @@ int WinMain(int argc, char** argv)
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	GLint voxelOcclusionTextureUniform;
+	GLint voxelOcclusionTextureUniform, lightVoxelTextureUniform;
 	voxelOcclusionTextureUniform = glGetUniformLocation(mainShaderProgram, "voxelOcclusionTexture");
+	lightVoxelTextureUniform = glGetUniformLocation(mainShaderProgram, "lightVoxelTexture");
 
 	GLint modelUniform, centerUniform, modelScaleUniform, voxelResolutionUniform;
 	modelUniform = glGetUniformLocation(mainShaderProgram, "model");
@@ -1252,9 +1312,10 @@ int WinMain(int argc, char** argv)
 	modelScaleUniform = glGetUniformLocation(mainShaderProgram, "modelScale");
 	voxelResolutionUniform = glGetUniformLocation(mainShaderProgram, "voxelResolution");
 
-	GLint useAmbientOcclusionUniform, useAtmosphericOcclusionUniform, useTextureUniform;
+	GLint useAmbientOcclusionUniform, useAtmosphericOcclusionUniform, useTextureUniform, useGIUniform;
 	useAmbientOcclusionUniform = glGetUniformLocation(mainShaderProgram, "useAmbientOcclusion");
 	useAtmosphericOcclusionUniform = glGetUniformLocation(mainShaderProgram, "useAtmosphericOcclusion");
+	useGIUniform = glGetUniformLocation(mainShaderProgram, "useGI");
 	useTextureUniform = glGetUniformLocation(mainShaderProgram, "useTexture");
 
 	GLint shiftXUniform, shiftYUniform, shiftZUniform;
@@ -1262,12 +1323,6 @@ int WinMain(int argc, char** argv)
 	shiftYUniform = glGetUniformLocation(mainShaderProgram, "shiftY");
 	shiftZUniform = glGetUniformLocation(mainShaderProgram, "shiftZ");
 
-
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LESS);
-	glEnable(GL_MULTISAMPLE);
-	glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
-	glViewport(0, 0, width, height);
 
 	// Data for camera control.
 	glm::dvec2 & mouse = glm::dvec2(0.0f, 0.0f);
@@ -1315,6 +1370,7 @@ int WinMain(int argc, char** argv)
 	bool useTexture = true;
 	bool useAmbientOcclusion = true;
 	bool useAtmosphericOcclusion = false;
+	bool useGI = true;
 
 	int shiftX = 0;
 	int shiftY = 0;
@@ -1322,6 +1378,155 @@ int WinMain(int argc, char** argv)
 
 	glClearError(15);
 
+	//MVP for Sun
+	glm::mat4 lightViewX = glm::lookAt(glm::vec3(0.5f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	glm::mat4 lightViewY = glm::lookAt(glm::vec3(0.0f, 0.5f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+	glm::mat4 lightViewZ = glm::lookAt(glm::vec3(0.0f, 0.0f, 0.5f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	glm::mat4 lightProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.001f, 1.0f);
+	glm::mat4 lightModel = glm::mat4(voxelModel);
+	glm::mat4 lightMVP = lightProjection * lightViewY * lightModel;
+
+
+	// Log file visual seperator.
+	logFile << "\nLight Shader Compilation\n-----------\n\n";
+
+	// Prepare shaders.
+	shader lightVertex, lightFragment;
+	lightVertex.prepare("shaders\\lightVertex.glsl");
+	lightFragment.prepare("shaders\\lightFragment.glsl");
+
+	// Compile shaders.
+	lightVertex.object = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(lightVertex.object, 1, &lightVertex.cstr, NULL);
+	glCompileShader(lightVertex.object);
+	lightFragment.object = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(lightFragment.object, 1, &lightFragment.cstr, NULL);
+	glCompileShader(lightFragment.object);
+
+	// Print shaders to logfile.
+	//logFile << "\n\nVertex Shader:\n" << mainVertex.cstr << "\n\nFragment Shader:\n" << mainFragment.cstr << "\n\n";
+
+	// Log shader compile errors.
+	GLchar lightVertexLog[1000];
+	GLchar lightFragmentLog[1000];
+	glGetShaderInfoLog(lightVertex.object, 1000, &length, lightVertexLog);
+	glGetShaderInfoLog(lightFragment.object, 1000, &length, lightFragmentLog);
+	logFile << "\nVertex Shader Log:\n" << lightVertexLog << "\n\nFragment Shader Log:\n" << lightFragmentLog << "\n\n";
+
+	// Attach shaders to program.
+	GLuint lightShaderProgram = glCreateProgram();
+	glAttachShader(lightShaderProgram, lightVertex.object);
+	glAttachShader(lightShaderProgram, lightFragment.object);
+
+	// Link shader program.
+	glLinkProgram(lightShaderProgram);
+
+	// Map mvp uniform from shaders.
+	GLint lightMVPUniform;
+	lightMVPUniform = glGetUniformLocation(lightShaderProgram, "mvp");
+
+	GLint lightDiffuseTextureUniform;
+	lightDiffuseTextureUniform = glGetUniformLocation(lightShaderProgram, "diffuseTexture");
+
+	GLint renderNormalsUniform;
+	renderNormalsUniform = glGetUniformLocation(lightShaderProgram, "renderNormals");
+
+	//glGenFramebuffers(1, &multisampleFramebuffer);  //BREAKS NSIGHT
+	//glBindFramebuffer(GL_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
+	//glFramebufferParameteri(multisampleFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, layerResolution);  //BREAKS NSIGHT
+	//glFramebufferParameteri(multisampleFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, layerResolution);  //BREAKS NSIGHT
+	//glFramebufferParameteri(multisampleFramebuffer, GL_FRAMEBUFFER_DEFAULT_SAMPLES, 4);  //BREAKS NSIGHT
+	//glGenTextures(1, &multisampleFramebufferTexture);  //BREAKS NSIGHT
+	//glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, multisampleFramebufferTexture);  //BREAKS NSIGHT
+	//glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RED, layerResolution, layerResolution, 0);  //BREAKS NSIGHT
+	//glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);  //BREAKS NSIGHT
+	//glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);  //BREAKS NSIGHT
+	//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, multisampleFramebufferTexture, 0);  //BREAKS NSIGHT
+
+	GLuint lightRenderResolution = 128;
+
+	glm::u8vec3 * lightArray = (glm::u8vec3 *) ::operator new(sizeof(glm::u8vec3) * lightRenderResolution * lightRenderResolution);
+	glm::u8vec3 * lightNormalsArray = (glm::u8vec3 *) ::operator new(sizeof(glm::u8vec3) * lightRenderResolution * lightRenderResolution);
+	GLfloat * lightDepthArray = (GLfloat *) ::operator new(sizeof(GLfloat) * lightRenderResolution * lightRenderResolution);
+
+	glm::u8vec3 * lightVoxelArray = (glm::u8vec3 *) ::operator new(sizeof(glm::u8vec3) * lightRenderResolution * lightRenderResolution * lightRenderResolution);
+	glm::u8vec3 * lightVoxelNormalsArray = (glm::u8vec3 *) ::operator new(sizeof(glm::u8vec3) * lightRenderResolution * lightRenderResolution * lightRenderResolution);
+
+	GLuint lightFramebuffer, lightFramebufferTexture, lightFramebufferDepthTexture, lightFramebufferNormalsTexture;
+	GLuint multisampleLightFramebuffer, multisampleLightFramebufferTexture, multisampleLightDepthTexture;
+
+	glGenFramebuffers(1, &multisampleLightFramebuffer);  //BREAKS NSIGHT
+	glBindFramebuffer(GL_FRAMEBUFFER, multisampleLightFramebuffer);  //BREAKS NSIGHT
+	glFramebufferParameteri(multisampleLightFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, lightRenderResolution);  //BREAKS NSIGHT
+	glFramebufferParameteri(multisampleLightFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, lightRenderResolution);  //BREAKS NSIGHT
+	glFramebufferParameteri(multisampleLightFramebuffer, GL_FRAMEBUFFER_DEFAULT_SAMPLES, 4);  //BREAKS NSIGHT
+	glGenTextures(1, &multisampleLightFramebufferTexture);  //BREAKS NSIGHT
+	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, multisampleLightFramebufferTexture);  //BREAKS NSIGHT
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_RGB, lightRenderResolution, lightRenderResolution, 0);  //BREAKS NSIGHT
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);  //BREAKS NSIGHT
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);  //BREAKS NSIGHT
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, multisampleLightFramebufferTexture, 0);  //BREAKS NSIGHT
+	glGenTextures(1, &multisampleLightDepthTexture);  //BREAKS NSIGHT
+	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, multisampleLightDepthTexture);  //BREAKS NSIGHT
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, 4, GL_DEPTH_COMPONENT, lightRenderResolution, lightRenderResolution, 0);  //BREAKS NSIGHT
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);  //BREAKS NSIGHT
+	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);  //BREAKS NSIGHT
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D_MULTISAMPLE, multisampleLightDepthTexture, 0);  //BREAKS NSIGHT
+
+	glGenFramebuffers(1, &lightFramebuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, lightFramebuffer);
+	glFramebufferParameteri(lightFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, lightRenderResolution);
+	glFramebufferParameteri(lightFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, lightRenderResolution);
+	glGenTextures(1, &lightFramebufferTexture);
+	glBindTexture(GL_TEXTURE_2D, lightFramebufferTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, lightRenderResolution, lightRenderResolution, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, lightFramebufferTexture, 0);
+	glGenTextures(1, &lightFramebufferDepthTexture);
+	glBindTexture(GL_TEXTURE_2D, lightFramebufferDepthTexture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, lightRenderResolution, lightRenderResolution, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, lightFramebufferDepthTexture, 0);
+
+	//glGenFramebuffers(1, &linearResamplingFramebuffer);
+	//glBindFramebuffer(GL_FRAMEBUFFER, linearResamplingFramebuffer);
+	//glFramebufferParameteri(linearResamplingFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, voxelResolution);
+	//glFramebufferParameteri(linearResamplingFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, voxelResolution);
+	//glGenTextures(1, &linearResamplingFramebufferTexture);
+	//glBindTexture(GL_TEXTURE_2D, linearResamplingFramebufferTexture);
+	//glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, voxelResolution, voxelResolution, 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	//glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, linearResamplingFramebufferTexture, 0);
+	//logFile << glGetErrorReadable().c_str();
+
+				//glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
+				//glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+				//glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_LINEAR);  //BREAKS NSIGHT
+				//glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
+				//glBindFramebuffer(GL_DRAW_FRAMEBUFFER, linearResamplingFramebuffer);  //BREAKS NSIGHT
+				//glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, voxelResolution, voxelResolution, GL_COLOR_BUFFER_BIT, GL_LINEAR);  //BREAKS NSIGHT
+				//glBindFramebuffer(GL_READ_FRAMEBUFFER, linearResamplingFramebuffer);
+				//glReadPixels(0, 0, voxelResolution, voxelResolution, GL_RED, GL_UNSIGNED_BYTE, processedLayer.x[layerIndex]);
+
+
+
+	GLuint lightVoxelTexture;
+	glGenTextures(1, &lightVoxelTexture);
+	glBindTexture(GL_TEXTURE_3D, lightVoxelTexture);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glBindTexture(GL_TEXTURE_3D, 0);
+	
+
+	bool first = true;
+
+	glEnable(GL_DEPTH_TEST);
+	glDepthFunc(GL_LESS);
 	// Main loop with exit on ESC or window close
 	while(!glfwGetKey(window, GLFW_KEY_ESCAPE) && !glfwWindowShouldClose(window))
 	{
@@ -1428,6 +1633,11 @@ int WinMain(int argc, char** argv)
 			useAtmosphericOcclusion = !useAtmosphericOcclusion;
 			inputLock = false;
 		}
+		if(glfwGetKey(window, GLFW_KEY_3) && inputLock)
+		{
+			useGI = !useGI;
+			inputLock = false;
+		}
 		//if(glfwGetKey(window, GLFW_KEY_E) && inputLock)
 		//{
 		//	voxelViewPosition += 1.0f / voxelResolution;
@@ -1466,6 +1676,7 @@ int WinMain(int argc, char** argv)
 		if(!glfwGetKey(window, GLFW_KEY_T) && 
 			!glfwGetKey(window, GLFW_KEY_1) && 
 			!glfwGetKey(window, GLFW_KEY_2) && 
+			!glfwGetKey(window, GLFW_KEY_3) && 
 			!glfwGetKey(window, GLFW_KEY_UP) && 
 			!glfwGetKey(window, GLFW_KEY_DOWN) && 
 			!glfwGetKey(window, GLFW_KEY_RIGHT) && 
@@ -1475,7 +1686,7 @@ int WinMain(int argc, char** argv)
 		{
 			inputLock = true;
 		}
-
+		
 
 		//Voxel Test Perspective
 		//voxelView = glm::lookAt(glm::vec3(0.0f, 0.5f, 0.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -1488,6 +1699,93 @@ int WinMain(int argc, char** argv)
 
 		// Compute the mvp matrix.
 		mvp = projection * view * model;
+
+		if(useGI)
+		{
+			glDisable(GL_MULTISAMPLE);
+			glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+			glViewport(0, 0, lightRenderResolution, lightRenderResolution);
+
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisampleLightFramebuffer);
+
+			glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			// Enable shader_program in the state machine.
+			glUseProgram(lightShaderProgram);
+
+			// Assign matrix uniform from shader to uniformvs.
+			glUniformMatrix4fv(lightMVPUniform, 1, GL_FALSE, glm::value_ptr(lightMVP));
+			glUniform1i(lightDiffuseTextureUniform, 0);
+			//glUniform1i(renderNormalsUniform, (int) false);
+
+			// Iterate through the meshes.
+			for(GLuint index = 0; index < scene->mNumMeshes; index++)
+			{
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, meshes[index].textures[0].textureID);
+				// Set vao as active VAO in the state machine.
+				glBindVertexArray(meshes[index].vao);
+
+				// Draw the current VAO using the bound IBO.
+				glDrawElements(GL_TRIANGLES, meshes[index].numberIndices, GL_UNSIGNED_INT, 0);
+			}
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleLightFramebuffer);  //BREAKS NSIGHT
+			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, lightFramebuffer);  //BREAKS NSIGHT
+			glBlitFramebuffer(0, 0, lightRenderResolution, lightRenderResolution, 0, 0, lightRenderResolution, lightRenderResolution, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);  //BREAKS NSIGHT
+			glBindFramebuffer(GL_READ_FRAMEBUFFER, lightFramebuffer);  //BREAKS NSIGHT
+			glReadPixels(0, 0, lightRenderResolution, lightRenderResolution, GL_RGB, GL_UNSIGNED_BYTE, lightArray);
+			glReadPixels(0, 0, lightRenderResolution, lightRenderResolution, GL_DEPTH_COMPONENT, GL_FLOAT, lightDepthArray);
+
+			//glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+
+			//glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			//glUniform1i(renderNormalsUniform, (int) true);
+
+			//// Iterate through the meshes.
+			//for(GLuint index = 0; index < scene->mNumMeshes; index++)
+			//{
+			//	glActiveTexture(GL_TEXTURE0);
+			//	glBindTexture(GL_TEXTURE_2D, meshes[index].textures[0].textureID);
+			//	// Set vao as active VAO in the state machine.
+			//	glBindVertexArray(meshes[index].vao);
+
+			//	// Draw the current VAO using the bound IBO.
+			//	glDrawElements(GL_TRIANGLES, meshes[index].numberIndices, GL_UNSIGNED_INT, 0);
+			//}
+			////glBindTexture(GL_TEXTURE_2D, lightFramebufferTexture);
+			//glReadPixels(0, 0, lightRenderResolution, lightRenderResolution, GL_RGB, GL_UNSIGNED_BYTE, lightNormalsArray);
+
+			//if(first)
+			//{
+			//	saveBMP("light.bmp", (unsigned char *) lightNormalsArray, lightRenderResolution, 3);
+			//	first = false;
+			//}
+
+			framebufferTo3DImageSpace(lightVoxelArray, lightArray, lightDepthArray, lightRenderResolution);
+
+
+
+			//unsigned char * arrayCastVoxel = (unsigned char *) sceneVoxelOcclusionTexture;
+
+			//for(GLuint layer = 0; layer < voxelResolution; layer++)
+			//{
+			//	saveBMP(string("layers\\final").append(to_string(layer).append(string(".bmp"))).c_str(), &arrayCastVoxel[layer * voxelResolution * voxelResolution * 3], voxelResolution, 3);
+			//}
+
+			glBindTexture(GL_TEXTURE_3D, lightVoxelTexture);
+			glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB, lightRenderResolution, lightRenderResolution, lightRenderResolution, 0, GL_RGB, GL_UNSIGNED_BYTE, lightVoxelArray);
+			glGenerateMipmap(GL_TEXTURE_3D);
+			glBindTexture(GL_TEXTURE_3D, 0);
+		}
+
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		glEnable(GL_MULTISAMPLE);
+		glEnable(GL_SAMPLE_ALPHA_TO_COVERAGE);
+		glViewport(0, 0, width, height);
 
 		// Clear the screen.
 		glClearColor(0.714f, 0.827f, 0.937f, 1.0f);
@@ -1505,9 +1803,11 @@ int WinMain(int argc, char** argv)
 		glUniform1i(normalTextureUniform, 1);
 		glUniform1i(opacityTextureUniform, 3);
 		glUniform1i(voxelOcclusionTextureUniform, 10);
+		glUniform1i(lightVoxelTextureUniform, 11);
 
 		glUniform1i(useAmbientOcclusionUniform, (int) useAmbientOcclusion);
 		glUniform1i(useAtmosphericOcclusionUniform, (int) useAtmosphericOcclusion);
+		glUniform1i(useGIUniform, (int) useGI);
 		glUniform1i(useTextureUniform, (int) useTexture);
 
 		glUniform3fv(centerUniform, 1, glm::value_ptr(center));
@@ -1519,6 +1819,10 @@ int WinMain(int argc, char** argv)
 
 		glActiveTexture(GL_TEXTURE10);
 		glBindTexture(GL_TEXTURE_3D, voxelOcclusionTexture);
+		glActiveTexture(GL_TEXTURE11);
+		glBindTexture(GL_TEXTURE_3D, lightVoxelTexture);
+		//glActiveTexture(GL_TEXTURE12);
+		//glBindTexture(GL_TEXTURE_3D, lightVoxelNormalsTexture);
 
 		//logFile << glGetErrorReadable().c_str();
 

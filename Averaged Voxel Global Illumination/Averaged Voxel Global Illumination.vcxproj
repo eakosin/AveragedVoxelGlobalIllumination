@@ -166,6 +166,8 @@
     <ClInclude Include="textures.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="shaders\lightFragment.glsl" />
+    <None Include="shaders\lightVertex.glsl" />
     <None Include="shaders\mainFragment.glsl" />
     <None Include="shaders\mainVertex.glsl" />
     <None Include="shaders\voxelFragment.glsl" />

@@ -13,6 +13,7 @@ out vec3 normal;
 out vec3 tangent;
 out vec3 bitangent;
 out vec2 uv;
+//out int instanceID;
 
 void main()
 {
@@ -22,5 +23,6 @@ void main()
 	position = vertex_position;
 	tangent = vertex_tangent;
 	bitangent = vertex_bitangent;
+	//instanceID = gl_InstanceID;
 	gl_Position = mvp * vec4(vertex_position, 1.0);
 }

@@ -40,5 +40,11 @@
     <None Include="shaders\voxelVertex.glsl">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="shaders\lightFragment.glsl">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\lightVertex.glsl">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>
