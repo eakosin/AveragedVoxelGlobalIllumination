@@ -43,7 +43,7 @@ GLdouble currentTime = 0.0;
 GLdouble startTime = 0.0;
 GLdouble endTime = 0.0;
 
-bool framebufferToBMP = false;
+bool framebufferToBMP = true;
 
 
 // Callback to update framebuffer size and projection matrix from new window size.
@@ -112,65 +112,96 @@ void glClearError(GLuint iterations)
 	}
 }
 
-class coordinateTransformation
+//class coordinateTransformation
+//{
+//	private:
+//		GLuint width2;
+//		GLuint height2;
+//		GLuint width3;
+//		GLuint height3;
+//		GLuint depth3;
+//	public:
+//		GLuint convert2(GLuint x, GLuint y)
+//		{
+//			GLuint retval = ((y * width2) + 
+//					x);
+//			return retval;
+//		}
+//		void set2(GLuint widthIn, GLuint heightIn)
+//		{
+//			width2 = widthIn;
+//			height2 = heightIn;
+//		}
+//		GLuint convert3(GLuint x, GLuint y, GLuint z)
+//		{
+//			GLuint retval = ((z * height3 * width3) + 
+//					(y * width3) +
+//					x);
+//			return retval;
+//		}
+//		void set3(GLuint widthIn, GLuint heightIn, GLuint depthIn)
+//		{
+//			width3 = widthIn;
+//			height3 = heightIn;
+//			depth3 = depthIn;
+//		}
+//};
+
+namespace coordinateTransformation
 {
-	private:
-		GLuint width2;
-		GLuint height2;
-		GLuint width3;
-		GLuint height3;
-		GLuint depth3;
-	public:
-		GLuint convert2(GLuint x, GLuint y)
-		{
-			GLuint retval = ((y * width2) + 
-					x);
-			return retval;
-		}
-		void set2(GLuint widthIn, GLuint heightIn)
-		{
-			width2 = widthIn;
-			height2 = heightIn;
-		}
-		GLuint convert3(GLuint x, GLuint y, GLuint z)
-		{
-			GLuint retval = ((z * height3 * width3) + 
-					(y * width3) +
-					x);
-			return retval;
-		}
-		void set3(GLuint widthIn, GLuint heightIn, GLuint depthIn)
-		{
-			width3 = widthIn;
-			height3 = heightIn;
-			depth3 = depthIn;
-		}
+	GLuint width2;
+	GLuint height2;
+	GLuint width3;
+	GLuint height3;
+	GLuint depth3;
+	GLuint convert2(GLuint x, GLuint y)
+	{
+		GLuint retval = ((y * width2) + 
+				x);
+		return retval;
+	}
+	void set2(GLuint widthIn, GLuint heightIn)
+	{
+		width2 = widthIn;
+		height2 = heightIn;
+	}
+	GLuint convert3(GLuint x, GLuint y, GLuint z)
+	{
+		GLuint retval = ((z * height3 * width3) + 
+				(y * width3) +
+				x);
+		return retval;
+	}
+	void set3(GLuint widthIn, GLuint heightIn, GLuint depthIn)
+	{
+		width3 = widthIn;
+		height3 = heightIn;
+		depth3 = depthIn;
+	}
 };
 
 void framebufferTo3DImageSpace(glm::u8vec3 * voxelTexture, glm::u8vec3 * lightTexture, GLfloat * depthTexture, GLuint voxelResolution)
 {
+	using namespace coordinateTransformation;
 	for(GLuint index = 0; index < voxelResolution * voxelResolution * voxelResolution; index++)
 	{
 		voxelTexture[index] = glm::u8vec3(0.0f, 0.0f, 0.0f);
 	}
-	coordinateTransformation ct;
-	ct.set2(voxelResolution, voxelResolution);
-	ct.set3(voxelResolution, voxelResolution, voxelResolution);
+	//coordinateTransformation ct;
+	set2(voxelResolution, voxelResolution);
+	set3(voxelResolution, voxelResolution, voxelResolution);
 	GLuint z;
 	GLfloat depth;
 	for(GLuint y = 0; y < voxelResolution; y++)
 	{
 		for(GLuint x = 0; x < voxelResolution; x++)
 		{
-			depth = depthTexture[ct.convert2(x,y)];
-			z = (GLuint) glm::clamp((((depth)) * voxelResolution), 0.0f, (GLfloat) (voxelResolution - 1));
-			voxelTexture[ct.convert3(x,(voxelResolution - 1 - z),y)] = lightTexture[ct.convert2(x,y)];
+			depth = depthTexture[convert2(x,y)];
+			z = (GLuint) glm::clamp(((depth) * voxelResolution), 0.0f, (GLfloat) (voxelResolution - 1));
+			voxelTexture[convert3(x,(voxelResolution - 1 - z),y)] = lightTexture[convert2(x,y)];
 		}
 	}
 }
-
-
-
 
 
 // Save unsigned char * to a .bmp file.
@@ -298,7 +329,6 @@ void copyCoverage(unsigned char * coverageTexture, unsigned char * layer, GLuint
 }
 
 
-
 //Shader:
 //file - file containing shader code
 //string - std::string contents of file
@@ -411,7 +441,165 @@ struct mesh
 	texture textures[4];
 };
 
+void processMeshes(const aiScene * scene, mesh * meshes)
+{
+	// Process all meshes.
+	for(GLuint meshIndex = 0; meshIndex < scene->mNumMeshes; meshIndex++)
+	{
+		// Grab the current mesh.
+		const aiMesh* currentMesh = scene->mMeshes[meshIndex];
 
+		// Count up faces that have only 3 indices.
+		meshes[meshIndex].numberIndices = 0;
+		for(GLuint faceIndex = 0; faceIndex < currentMesh->mNumFaces; faceIndex++)
+		{
+			const aiFace* currentFace = &currentMesh->mFaces[faceIndex];
+			if(currentFace->mNumIndices == 3)
+			{
+				meshes[meshIndex].numberIndices += 3;
+			}
+		}
+
+		// Allocate space for indices.
+		meshes[meshIndex].indices = (GLuint*) ::operator new(sizeof(GLuint) * meshes[meshIndex].numberIndices);
+
+		// Copy indices into array for buffering.
+		for(GLuint faceIndex = 0; faceIndex < currentMesh->mNumFaces; faceIndex++)
+		{
+			const aiFace* currentFace = &currentMesh->mFaces[faceIndex];
+			if(currentFace->mNumIndices == 3)
+			{
+				for(GLuint indicesIndex = 0; indicesIndex < 3; indicesIndex++)
+				{
+					meshes[meshIndex].indices[(faceIndex * 3) + indicesIndex] = currentFace->mIndices[indicesIndex];
+				}
+			}
+		}
+
+		// Save the number of vertices in the mesh.
+		meshes[meshIndex].numberVertices = currentMesh->mNumVertices;
+
+		//Allocate space for vertices, normals, uvs, tangents, and bitangents.
+		meshes[meshIndex].vertexVector = (glm::vec3*) ::operator new(sizeof(glm::vec3) * currentMesh->mNumVertices);
+		meshes[meshIndex].normalVector = (glm::vec3*) ::operator new(sizeof(glm::vec3) * currentMesh->mNumVertices);
+		meshes[meshIndex].uv = (glm::vec2*) ::operator new(sizeof(glm::vec2) * currentMesh->mNumVertices);
+		meshes[meshIndex].tangentVector = (glm::vec3*) ::operator new(sizeof(glm::vec3) * currentMesh->mNumVertices);
+		meshes[meshIndex].bitangentVector = (glm::vec3*) ::operator new(sizeof(glm::vec3) * currentMesh->mNumVertices);
+
+		for(GLuint vertexIndex = 0; vertexIndex < currentMesh->mNumVertices; vertexIndex++)
+		{
+			// Add vertex.
+			const aiVector3D* currentVertex = &currentMesh->mVertices[vertexIndex];
+			meshes[meshIndex].vertexVector[vertexIndex].x = (GLfloat) currentVertex->x;
+			meshes[meshIndex].vertexVector[vertexIndex].y = (GLfloat) currentVertex->y;
+			meshes[meshIndex].vertexVector[vertexIndex].z = (GLfloat) currentVertex->z;
+			// Add normal.
+			const aiVector3D* currentNormal = &currentMesh->mNormals[vertexIndex];
+			meshes[meshIndex].normalVector[vertexIndex].x = (GLfloat) currentNormal->x;
+			meshes[meshIndex].normalVector[vertexIndex].y = (GLfloat) currentNormal->y;
+			meshes[meshIndex].normalVector[vertexIndex].z = (GLfloat) currentNormal->z;
+			// Add uv.
+			const aiVector3D* currentUV = &currentMesh->mTextureCoords[0][vertexIndex];
+			meshes[meshIndex].uv[vertexIndex].s = (GLfloat) currentUV->x;
+			meshes[meshIndex].uv[vertexIndex].t = (GLfloat) currentUV->y;
+			// Add tangent.
+			const aiVector3D* currentTangent = &currentMesh->mTangents[vertexIndex];
+			meshes[meshIndex].tangentVector[vertexIndex].x = (GLfloat) currentTangent->x;
+			meshes[meshIndex].tangentVector[vertexIndex].y = (GLfloat) currentTangent->y;
+			meshes[meshIndex].tangentVector[vertexIndex].z = (GLfloat) currentTangent->z;
+			// Add bitangent.
+			const aiVector3D* currentBitangent = &currentMesh->mBitangents[vertexIndex];
+			meshes[meshIndex].bitangentVector[vertexIndex].x = (GLfloat) currentBitangent->x;
+			meshes[meshIndex].bitangentVector[vertexIndex].y = (GLfloat) currentBitangent->y;
+			meshes[meshIndex].bitangentVector[vertexIndex].z = (GLfloat) currentBitangent->z;
+		}
+
+		//Compute raw vertices.
+		meshes[meshIndex].numberRawVertices = meshes[meshIndex].numberIndices;
+		meshes[meshIndex].rawVertices = (glm::vec3*) ::operator new(sizeof(glm::vec3) * meshes[meshIndex].numberIndices);
+		for(GLuint index = 0; index < meshes[meshIndex].numberIndices; index++)
+		{
+			meshes[meshIndex].rawVertices[index] = glm::vec3(meshes[meshIndex].vertexVector[meshes[meshIndex].indices[index]]);
+		}
+
+		aiReturn dummy;
+
+		meshes[meshIndex].material = scene->mMaterials[currentMesh->mMaterialIndex];
+		aiMaterial* currentMaterial = meshes[meshIndex].material;
+
+		GLuint countMaterial;
+
+		// Load textures
+		for(GLuint type = 0; type < 4; type++)
+		{
+			countMaterial = currentMaterial->GetTextureCount(textureType[type]);
+			if(countMaterial == 1)
+			{
+				dummy = currentMaterial->GetTexture(textureType[type],
+													0,
+													&meshes[meshIndex].textures[type].modelRelativePath,
+													&meshes[meshIndex].textures[type].mapping,
+													&meshes[meshIndex].textures[type].uvindex,
+													&meshes[meshIndex].textures[type].blend,
+													&meshes[meshIndex].textures[type].operation,
+													&meshes[meshIndex].textures[type].mapmode);
+				meshes[meshIndex].textures[type].prepare(type);
+				//logFile << glGetErrorReadable().c_str();
+			}
+			else
+			{
+				meshes[meshIndex].textures[type].textureID = 0;
+			}
+		}
+
+
+		// Generate Vertex Array Object.
+		glGenVertexArrays(1, &meshes[meshIndex].vao);
+		// Bind the meshes vao to store vbo and ibo attributes for easy processing.
+		glBindVertexArray(meshes[meshIndex].vao);
+
+		// Generate 5 Vertex Buffer Objects.
+		glGenBuffers(5, meshes[meshIndex].vbo);
+
+		//Buffer vertices to vbo[0].
+		glBindBuffer(GL_ARRAY_BUFFER, meshes[meshIndex].vbo[0]);
+		glBufferData(GL_ARRAY_BUFFER, (3 * currentMesh->mNumVertices * sizeof(GLfloat)), meshes[meshIndex].vertexVector, GL_STATIC_DRAW);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		//Buffer normals to vbo[1].
+		glBindBuffer(GL_ARRAY_BUFFER, meshes[meshIndex].vbo[1]);
+		glBufferData(GL_ARRAY_BUFFER, (3 * currentMesh->mNumVertices * sizeof(GLfloat)), meshes[meshIndex].normalVector, GL_STATIC_DRAW);
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		//Buffer uvs to vbo[2].
+		glBindBuffer(GL_ARRAY_BUFFER, meshes[meshIndex].vbo[2]);
+		glBufferData(GL_ARRAY_BUFFER, (2 * currentMesh->mNumVertices * sizeof(GLfloat)), meshes[meshIndex].uv, GL_STATIC_DRAW);
+		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0);
+		//Buffer tangents to vbo[3].
+		glBindBuffer(GL_ARRAY_BUFFER, meshes[meshIndex].vbo[3]);
+		glBufferData(GL_ARRAY_BUFFER, (3 * currentMesh->mNumVertices * sizeof(GLfloat)), meshes[meshIndex].tangentVector, GL_STATIC_DRAW);
+		glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, 0);
+		//Buffer bitangents to vbo[4].
+		glBindBuffer(GL_ARRAY_BUFFER, meshes[meshIndex].vbo[4]);
+		glBufferData(GL_ARRAY_BUFFER, (3 * currentMesh->mNumVertices * sizeof(GLfloat)), meshes[meshIndex].bitangentVector, GL_STATIC_DRAW);
+		glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 0, 0);
+
+		// Enable the Vertex Attributes for the 5 vbos.
+		glEnableVertexAttribArray(0);
+		glEnableVertexAttribArray(1);
+		glEnableVertexAttribArray(2);
+		glEnableVertexAttribArray(3);
+		glEnableVertexAttribArray(4);
+
+		// Build the Index Buffer Object
+		glGenBuffers(1, &meshes[meshIndex].ibo);
+
+		// Buffer indices to ibo.
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, meshes[meshIndex].ibo);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, (meshes[meshIndex].numberIndices * sizeof(GLuint)), meshes[meshIndex].indices, GL_STATIC_DRAW);
+
+		// Unbind the VAO
+		glBindVertexArray(0);
+	}
+}
 
 class layers
 {
@@ -537,11 +725,6 @@ int WinMain(int argc, char** argv)
 	//glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 
 
-	// Load scene.
-	const aiScene* scene;
-	Assimp::Importer importer;
-	scene = importer.ReadFile(file, aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_CalcTangentSpace | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
-
 	// Log file visual seperator.
 	logFile << "\nShader Compilation\n-----------\n\n";
 
@@ -581,222 +764,32 @@ int WinMain(int argc, char** argv)
 	GLint mainMVPUniform;
 	mainMVPUniform = glGetUniformLocation(mainShaderProgram, "mvp");
 
+	GLint voxelOcclusionTextureUniform, lightVoxelTextureUniform;
+	voxelOcclusionTextureUniform = glGetUniformLocation(mainShaderProgram, "voxelOcclusionTexture");
+	lightVoxelTextureUniform = glGetUniformLocation(mainShaderProgram, "lightVoxelTexture");
+
+	GLint modelUniform, voxelResolutionUniform;
+	modelUniform = glGetUniformLocation(mainShaderProgram, "model");
+	voxelResolutionUniform = glGetUniformLocation(mainShaderProgram, "voxelResolution");
+
+	GLint useAmbientOcclusionUniform, useAtmosphericOcclusionUniform, useTextureUniform, useGIUniform;
+	useAmbientOcclusionUniform = glGetUniformLocation(mainShaderProgram, "useAmbientOcclusion");
+	useAtmosphericOcclusionUniform = glGetUniformLocation(mainShaderProgram, "useAtmosphericOcclusion");
+	useGIUniform = glGetUniformLocation(mainShaderProgram, "useGI");
+	useTextureUniform = glGetUniformLocation(mainShaderProgram, "useTexture");
+
+	GLint shiftXUniform, shiftYUniform, shiftZUniform;
+	shiftXUniform = glGetUniformLocation(mainShaderProgram, "shiftX");
+	shiftYUniform = glGetUniformLocation(mainShaderProgram, "shiftY");
+	shiftZUniform = glGetUniformLocation(mainShaderProgram, "shiftZ");
+
 	GLint diffuseTextureUniform;
 	diffuseTextureUniform = glGetUniformLocation(mainShaderProgram, "diffuseTexture");
 	GLint normalTextureUniform;
 	normalTextureUniform = glGetUniformLocation(mainShaderProgram, "normalTexture");
-	GLint opacityTextureUniform;
-	opacityTextureUniform = glGetUniformLocation(mainShaderProgram, "opacityTexture");
+	GLint specularTextureUniform;
+	specularTextureUniform = glGetUniformLocation(mainShaderProgram, "specularTexture");
 
-	// Log error from shader compiling and linking.
-	logFile << glGetErrorReadable().c_str();
-
-	// Log file visual seperator.
-	logFile << "\nImport Model\n-----------\n\n";
-
-	GLuint totalIndices = 0;
-
-	// Array of meshes in scene object.
-	mesh* meshes = (mesh*) ::operator new(sizeof(mesh) * scene->mNumMeshes);
-	GLuint numberMeshes = scene->mNumMeshes;
-
-	// Process all meshes.
-	for(GLuint meshIndex = 0; meshIndex < scene->mNumMeshes; meshIndex++)
-	{
-		// Grab the current mesh.
-		const aiMesh* currentMesh = scene->mMeshes[meshIndex];
-
-		// Count up faces that have only 3 indices.
-		meshes[meshIndex].numberIndices = 0;
-		for(GLuint faceIndex = 0; faceIndex < currentMesh->mNumFaces; faceIndex++)
-		{
-			const aiFace* currentFace = &currentMesh->mFaces[faceIndex];
-			if(currentFace->mNumIndices == 3)
-			{
-				meshes[meshIndex].numberIndices += 3;
-			}
-		}
-
-		// Allocate space for indices.
-		meshes[meshIndex].indices = (GLuint*) ::operator new(sizeof(GLuint) * meshes[meshIndex].numberIndices);
-
-		// Copy indices into array for buffering.
-		for(GLuint faceIndex = 0; faceIndex < currentMesh->mNumFaces; faceIndex++)
-		{
-			const aiFace* currentFace = &currentMesh->mFaces[faceIndex];
-			if(currentFace->mNumIndices == 3)
-			{
-				for(GLuint indicesIndex = 0; indicesIndex < 3; indicesIndex++)
-				{
-					meshes[meshIndex].indices[(faceIndex * 3) + indicesIndex] = currentFace->mIndices[indicesIndex];
-				}
-			}
-		}
-
-		// Save the number of vertices in the mesh.
-		meshes[meshIndex].numberVertices = currentMesh->mNumVertices;
-
-		//Allocate space for vertices, normals, uvs, tangents, and bitangents.
-		meshes[meshIndex].vertexVector = (glm::vec3*) ::operator new(sizeof(glm::vec3) * currentMesh->mNumVertices);
-		meshes[meshIndex].normalVector = (glm::vec3*) ::operator new(sizeof(glm::vec3) * currentMesh->mNumVertices);
-		meshes[meshIndex].uv = (glm::vec2*) ::operator new(sizeof(glm::vec2) * currentMesh->mNumVertices);
-		meshes[meshIndex].tangentVector = (glm::vec3*) ::operator new(sizeof(glm::vec3) * currentMesh->mNumVertices);
-		meshes[meshIndex].bitangentVector = (glm::vec3*) ::operator new(sizeof(glm::vec3) * currentMesh->mNumVertices);
-
-		for(GLuint vertexIndex = 0; vertexIndex < currentMesh->mNumVertices; vertexIndex++)
-		{
-			// Add vertex.
-			const aiVector3D* currentVertex = &currentMesh->mVertices[vertexIndex];
-			meshes[meshIndex].vertexVector[vertexIndex].x = (GLfloat) currentVertex->x;
-			meshes[meshIndex].vertexVector[vertexIndex].y = (GLfloat) currentVertex->y;
-			meshes[meshIndex].vertexVector[vertexIndex].z = (GLfloat) currentVertex->z;
-			// Add normal.
-			const aiVector3D* currentNormal = &currentMesh->mNormals[vertexIndex];
-			meshes[meshIndex].normalVector[vertexIndex].x = (GLfloat) currentNormal->x;
-			meshes[meshIndex].normalVector[vertexIndex].y = (GLfloat) currentNormal->y;
-			meshes[meshIndex].normalVector[vertexIndex].z = (GLfloat) currentNormal->z;
-			// Add uv.
-			const aiVector3D* currentUV = &currentMesh->mTextureCoords[0][vertexIndex];
-			meshes[meshIndex].uv[vertexIndex].s = (GLfloat) currentUV->x;
-			meshes[meshIndex].uv[vertexIndex].t = (GLfloat) currentUV->y;
-			// Add tangent.
-			const aiVector3D* currentTangent = &currentMesh->mTangents[vertexIndex];
-			meshes[meshIndex].tangentVector[vertexIndex].x = (GLfloat) currentTangent->x;
-			meshes[meshIndex].tangentVector[vertexIndex].y = (GLfloat) currentTangent->y;
-			meshes[meshIndex].tangentVector[vertexIndex].z = (GLfloat) currentTangent->z;
-			// Add bitangent.
-			const aiVector3D* currentBitangent = &currentMesh->mBitangents[vertexIndex];
-			meshes[meshIndex].bitangentVector[vertexIndex].x = (GLfloat) currentBitangent->x;
-			meshes[meshIndex].bitangentVector[vertexIndex].y = (GLfloat) currentBitangent->y;
-			meshes[meshIndex].bitangentVector[vertexIndex].z = (GLfloat) currentBitangent->z;
-		}
-
-		startTime = glfwGetTime();
-
-		//Compute raw vertices.
-		meshes[meshIndex].numberRawVertices = meshes[meshIndex].numberIndices;
-		meshes[meshIndex].rawVertices = (glm::vec3*) ::operator new(sizeof(glm::vec3) * meshes[meshIndex].numberIndices);
-		for(GLuint index = 0; index < meshes[meshIndex].numberIndices; index++)
-		{
-			meshes[meshIndex].rawVertices[index] = glm::vec3(meshes[meshIndex].vertexVector[meshes[meshIndex].indices[index]]);
-		}
-
-		endTime = glfwGetTime();
-		currentTime = endTime - startTime;
-		totalTime += currentTime;
-		totalIndices += meshes[meshIndex].numberIndices;
-
-		//logFile << "Time(" << meshes[meshIndex].numberIndices << "): " << currentTime << "\n";
-
-		aiReturn dummy;
-
-		meshes[meshIndex].material = scene->mMaterials[currentMesh->mMaterialIndex];
-		aiMaterial* currentMaterial = meshes[meshIndex].material;
-
-		GLuint countMaterial;
-
-		// Load textures
-		for(GLuint type = 0; type < 4; type++)
-		{
-			countMaterial = currentMaterial->GetTextureCount(textureType[type]);
-			if(countMaterial == 1)
-			{
-				dummy = currentMaterial->GetTexture(textureType[type],
-													0,
-													&meshes[meshIndex].textures[type].modelRelativePath,
-													&meshes[meshIndex].textures[type].mapping,
-													&meshes[meshIndex].textures[type].uvindex,
-													&meshes[meshIndex].textures[type].blend,
-													&meshes[meshIndex].textures[type].operation,
-													&meshes[meshIndex].textures[type].mapmode);
-				meshes[meshIndex].textures[type].prepare(type);
-				//logFile << glGetErrorReadable().c_str();
-			}
-			else
-			{
-				meshes[meshIndex].textures[type].textureID = 0;
-			}
-		}
-
-
-		// Generate Vertex Array Object.
-		glGenVertexArrays(1, &meshes[meshIndex].vao);
-		// Bind the meshes vao to store vbo and ibo attributes for easy processing.
-		glBindVertexArray(meshes[meshIndex].vao);
-
-		// Generate 5 Vertex Buffer Objects.
-		glGenBuffers(5, meshes[meshIndex].vbo);
-
-		//Buffer vertices to vbo[0].
-		glBindBuffer(GL_ARRAY_BUFFER, meshes[meshIndex].vbo[0]);
-		glBufferData(GL_ARRAY_BUFFER, (3 * currentMesh->mNumVertices * sizeof(GLfloat)), meshes[meshIndex].vertexVector, GL_STATIC_DRAW);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
-		//Buffer normals to vbo[1].
-		glBindBuffer(GL_ARRAY_BUFFER, meshes[meshIndex].vbo[1]);
-		glBufferData(GL_ARRAY_BUFFER, (3 * currentMesh->mNumVertices * sizeof(GLfloat)), meshes[meshIndex].normalVector, GL_STATIC_DRAW);
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, 0);
-		//Buffer uvs to vbo[2].
-		glBindBuffer(GL_ARRAY_BUFFER, meshes[meshIndex].vbo[2]);
-		glBufferData(GL_ARRAY_BUFFER, (2 * currentMesh->mNumVertices * sizeof(GLfloat)), meshes[meshIndex].uv, GL_STATIC_DRAW);
-		glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, 0);
-		//Buffer tangents to vbo[3].
-		glBindBuffer(GL_ARRAY_BUFFER, meshes[meshIndex].vbo[3]);
-		glBufferData(GL_ARRAY_BUFFER, (3 * currentMesh->mNumVertices * sizeof(GLfloat)), meshes[meshIndex].tangentVector, GL_STATIC_DRAW);
-		glVertexAttribPointer(3, 3, GL_FLOAT, GL_FALSE, 0, 0);
-		//Buffer bitangents to vbo[4].
-		glBindBuffer(GL_ARRAY_BUFFER, meshes[meshIndex].vbo[4]);
-		glBufferData(GL_ARRAY_BUFFER, (3 * currentMesh->mNumVertices * sizeof(GLfloat)), meshes[meshIndex].bitangentVector, GL_STATIC_DRAW);
-		glVertexAttribPointer(4, 3, GL_FLOAT, GL_FALSE, 0, 0);
-
-		// Enable the Vertex Attributes for the 5 vbos.
-		glEnableVertexAttribArray(0);
-		glEnableVertexAttribArray(1);
-		glEnableVertexAttribArray(2);
-		glEnableVertexAttribArray(3);
-		glEnableVertexAttribArray(4);
-
-		// Build the Index Buffer Object
-		glGenBuffers(1, &meshes[meshIndex].ibo);
-
-		// Buffer indices to ibo.
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, meshes[meshIndex].ibo);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, (meshes[meshIndex].numberIndices * sizeof(GLuint)), meshes[meshIndex].indices, GL_STATIC_DRAW);
-
-		// Unbind the VAO
-		glBindVertexArray(0);
-	}
-
-
-	logFile << "Total Time(" << totalIndices << "): " << totalTime << "\n";
-
-	logFile << "\nVoxel Occlusion Preperation\n-----------\n\n";
-
-
-	//Generate the Occlusion 3D Texture
-
-	glm::vec3 minimum, maximum;
-
-	minimum = glm::vec3(meshes[0].rawVertices[0]);
-	maximum = glm::vec3(meshes[0].rawVertices[0]);
-
-	//Find the bounding box of the model
-	for(GLuint meshIndex = 0; meshIndex < numberMeshes; meshIndex++)
-	{
-		for(GLuint vertexIndex = 0; vertexIndex < meshes[meshIndex].numberRawVertices; vertexIndex++)
-		{
-			const glm::vec3* currentVertex = &meshes[meshIndex].rawVertices[vertexIndex];
-			minimum.x = minimum.x <= currentVertex->x ? minimum.x : currentVertex->x;
-			minimum.y = minimum.y <= currentVertex->y ? minimum.y : currentVertex->y;
-			minimum.z = minimum.z <= currentVertex->z ? minimum.z : currentVertex->z;
-			maximum.x = maximum.x >= currentVertex->x ? maximum.x : currentVertex->x;
-			maximum.y = maximum.y >= currentVertex->y ? maximum.y : currentVertex->y;
-			maximum.z = maximum.z >= currentVertex->z ? maximum.z : currentVertex->z;
-		}
-
-	}
-
-	logFile << "Minimum\nX: " << minimum.x << "\nY: " << minimum.y << "\nZ: " << minimum.z << "\n";
-	logFile << "Maximum\nX: " << maximum.x << "\nY: " << maximum.y << "\nZ: " << maximum.z << "\n";
 
 	// Log file visual seperator.
 	logFile << "\nVoxel Shader Compilation\n-----------\n\n";
@@ -836,13 +829,147 @@ int WinMain(int argc, char** argv)
 	GLint voxelMVPUniform;
 	voxelMVPUniform = glGetUniformLocation(voxelShaderProgram, "mvp");
 
-	glUseProgram(voxelShaderProgram);
+
+	// Log file visual seperator.
+	logFile << "\nCoverage Shader Compilation\n-----------\n\n";
+
+	// Prepare shaders.
+	shader coverageVertex, coverageFragment;
+	coverageVertex.prepare("shaders\\coverageVertex.glsl");
+	coverageFragment.prepare("shaders\\coverageFragment.glsl");
+
+	// Compile shaders.
+	coverageVertex.object = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(coverageVertex.object, 1, &coverageVertex.cstr, NULL);
+	glCompileShader(coverageVertex.object);
+	coverageFragment.object = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(coverageFragment.object, 1, &coverageFragment.cstr, NULL);
+	glCompileShader(coverageFragment.object);
+
+	// Print shaders to logfile.
+	//logFile << "\n\nVertex Shader:\n" << mainVertex.cstr << "\n\nFragment Shader:\n" << mainFragment.cstr << "\n\n";
+
+	// Log shader compile errors.
+	GLchar coverageVertexLog[1000];
+	GLchar coverageFragmentLog[1000];
+	glGetShaderInfoLog(coverageVertex.object, 1000, &length, coverageVertexLog);
+	glGetShaderInfoLog(coverageFragment.object, 1000, &length, coverageFragmentLog);
+	logFile << "\nVertex Shader Log:\n" << coverageVertexLog << "\n\nFragment Shader Log:\n" << coverageFragmentLog << "\n\n";
+
+	// Attach shaders to program.
+	GLuint coverageShaderProgram = glCreateProgram();
+	glAttachShader(coverageShaderProgram, coverageVertex.object);
+	glAttachShader(coverageShaderProgram, coverageFragment.object);
+
+	// Link shader program.
+	glLinkProgram(coverageShaderProgram);
+
+	GLint framebufferTextureUniform;
+	framebufferTextureUniform = glGetUniformLocation(coverageShaderProgram, "framebufferTexture");
+
+	// Map mvp uniform from shaders.
+	GLint coverageLayerResolutionUniform, coverageLayerPrecisionUniform;
+	coverageLayerResolutionUniform = glGetUniformLocation(coverageShaderProgram, "coverageLayerResolution");
+	coverageLayerPrecisionUniform = glGetUniformLocation(coverageShaderProgram, "coverageLayerPrecision");
+
+
+	// Log file visual seperator.
+	logFile << "\nLight Shader Compilation\n-----------\n\n";
+
+	// Prepare shaders.
+	shader lightVertex, lightFragment;
+	lightVertex.prepare("shaders\\lightVertex.glsl");
+	lightFragment.prepare("shaders\\lightFragment.glsl");
+
+	// Compile shaders.
+	lightVertex.object = glCreateShader(GL_VERTEX_SHADER);
+	glShaderSource(lightVertex.object, 1, &lightVertex.cstr, NULL);
+	glCompileShader(lightVertex.object);
+	lightFragment.object = glCreateShader(GL_FRAGMENT_SHADER);
+	glShaderSource(lightFragment.object, 1, &lightFragment.cstr, NULL);
+	glCompileShader(lightFragment.object);
+
+	// Print shaders to logfile.
+	//logFile << "\n\nVertex Shader:\n" << mainVertex.cstr << "\n\nFragment Shader:\n" << mainFragment.cstr << "\n\n";
+
+	// Log shader compile errors.
+	GLchar lightVertexLog[1000];
+	GLchar lightFragmentLog[1000];
+	glGetShaderInfoLog(lightVertex.object, 1000, &length, lightVertexLog);
+	glGetShaderInfoLog(lightFragment.object, 1000, &length, lightFragmentLog);
+	logFile << "\nVertex Shader Log:\n" << lightVertexLog << "\n\nFragment Shader Log:\n" << lightFragmentLog << "\n\n";
+
+	// Attach shaders to program.
+	GLuint lightShaderProgram = glCreateProgram();
+	glAttachShader(lightShaderProgram, lightVertex.object);
+	glAttachShader(lightShaderProgram, lightFragment.object);
+
+	// Link shader program.
+	glLinkProgram(lightShaderProgram);
+
+	// Map mvp uniform from shaders.
+	GLint lightMVPUniform;
+	lightMVPUniform = glGetUniformLocation(lightShaderProgram, "mvp");
+
+	GLint lightDiffuseTextureUniform;
+	lightDiffuseTextureUniform = glGetUniformLocation(lightShaderProgram, "diffuseTexture");
+
+	GLint renderNormalsUniform;
+	renderNormalsUniform = glGetUniformLocation(lightShaderProgram, "renderNormals");
+
+	// Log error from shader compiling and linking.
+	logFile << glGetErrorReadable().c_str();
+
+
+	// Log file visual seperator.
+	logFile << "\nImport Model\n-----------\n\n";
+
+	// Load scene.
+	const aiScene* scene;
+	Assimp::Importer importer;
+	scene = importer.ReadFile(file, aiProcess_Triangulate | aiProcess_GenNormals | aiProcess_CalcTangentSpace | aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
+
+	// Array of meshes in scene object.
+	mesh* meshes = (mesh*) ::operator new(sizeof(mesh) * scene->mNumMeshes);
+	GLuint numberMeshes = scene->mNumMeshes;
+
+	processMeshes(scene, meshes);
+
+
+	// Log file visual seperator.
+	logFile << "\nVoxel Occlusion Preperation\n-----------\n\n";
+
+	glm::vec3 minimum, maximum;
+
+	minimum = glm::vec3(meshes[0].rawVertices[0]);
+	maximum = glm::vec3(meshes[0].rawVertices[0]);
+
+	//Find the bounding box of the model
+	for(GLuint meshIndex = 0; meshIndex < numberMeshes; meshIndex++)
+	{
+		for(GLuint vertexIndex = 0; vertexIndex < meshes[meshIndex].numberRawVertices; vertexIndex++)
+		{
+			const glm::vec3* currentVertex = &meshes[meshIndex].rawVertices[vertexIndex];
+			minimum.x = minimum.x <= currentVertex->x ? minimum.x : currentVertex->x;
+			minimum.y = minimum.y <= currentVertex->y ? minimum.y : currentVertex->y;
+			minimum.z = minimum.z <= currentVertex->z ? minimum.z : currentVertex->z;
+			maximum.x = maximum.x >= currentVertex->x ? maximum.x : currentVertex->x;
+			maximum.y = maximum.y >= currentVertex->y ? maximum.y : currentVertex->y;
+			maximum.z = maximum.z >= currentVertex->z ? maximum.z : currentVertex->z;
+		}
+
+	}
+
+	logFile << "Minimum\nX: " << minimum.x << "\nY: " << minimum.y << "\nZ: " << minimum.z << "\n";
+	logFile << "Maximum\nX: " << maximum.x << "\nY: " << maximum.y << "\nZ: " << maximum.z << "\n";
+
+
 
 	// Log file visual seperator.
 	logFile << "\nVoxel Occlusion Generation\n-----------\n\n";
 
 
-	GLuint voxelResolution = 128;
+	GLuint voxelResolution = 256;
 	GLuint voxelPrecision = 4;
 	GLuint voxelSubPrecision = 16;
 	GLfloat voxelStep = 1.0f / voxelResolution;
@@ -861,6 +988,23 @@ int WinMain(int argc, char** argv)
 		emptyLayer.y[0][index] = 0x00;
 		emptyLayer.z[0][index] = 0x00;
 	}
+
+	glm::vec3 screenSpaceVertices[6] = {
+		glm::vec3( 1.0f,  1.0f,  0.0f),
+		glm::vec3(-1.0f,  1.0f,  0.0f),
+		glm::vec3(-1.0f, -1.0f,  0.0f),
+		glm::vec3( 1.0f,  1.0f,  0.0f),
+		glm::vec3(-1.0f, -1.0f,  0.0f),
+		glm::vec3( 1.0f, -1.0f,  0.0f)};
+
+	GLuint screenSpaceVBO, screenSpaceVAO;
+	glGenBuffers(1, &screenSpaceVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, screenSpaceVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(screenSpaceVertices), screenSpaceVertices, GL_STATIC_DRAW);
+	glGenVertexArrays(1, &screenSpaceVAO);
+	glBindVertexArray(screenSpaceVAO);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+	glEnableVertexAttribArray(0);
 
 	glViewport(0, 0, layerResolution, layerResolution);
 
@@ -935,6 +1079,7 @@ int WinMain(int argc, char** argv)
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, coverageFramebufferTexture, 0);
+
 		glGenFramebuffers(1, &linearResamplingFramebuffer);
 		glBindFramebuffer(GL_FRAMEBUFFER, linearResamplingFramebuffer);
 		glFramebufferParameteri(linearResamplingFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, voxelResolution);
@@ -959,6 +1104,17 @@ int WinMain(int argc, char** argv)
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, coverageFramebufferTexture, 0);
+
+		glGenFramebuffers(1, &linearResamplingFramebuffer);
+		glBindFramebuffer(GL_FRAMEBUFFER, linearResamplingFramebuffer);
+		glFramebufferParameteri(linearResamplingFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, voxelResolution);
+		glFramebufferParameteri(linearResamplingFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, voxelResolution);
+		glGenTextures(1, &linearResamplingFramebufferTexture);
+		glBindTexture(GL_TEXTURE_2D, linearResamplingFramebufferTexture);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, voxelResolution, voxelResolution, 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, linearResamplingFramebufferTexture, 0);
 		//logFile << glGetErrorReadable().c_str();
 	}
 
@@ -992,6 +1148,8 @@ int WinMain(int argc, char** argv)
 			voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f + voxelStep - overlap, (1.0f / (GLfloat) voxelResolution) + voxelStep + overlap);
 
 			voxelMVP = voxelProjection * voxelViewX * voxelModel;
+
+			glViewport(0, 0, layerResolution, layerResolution);
 
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
 			//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
@@ -1034,16 +1192,28 @@ int WinMain(int argc, char** argv)
 				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
 				glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);  //BREAKS NSIGHT
 				glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
-				//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
-				glReadPixels(0, 0, layerResolution, layerResolution, GL_RED, GL_UNSIGNED_BYTE, coverageTexture);
-				calculateCoverage(coverageTexture, processedLayer.x[layerIndex], voxelResolution, voxelPrecision);
-				//copyCoverage(coverageTexture, processedLayer.x[layerIndex], voxelResolution);
+				glViewport(0, 0, voxelResolution, voxelResolution);
+				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, linearResamplingFramebuffer);
+				glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+				glUseProgram(coverageShaderProgram);
+				glUniform1i(framebufferTextureUniform, 0);
+				glUniform1i(coverageLayerResolutionUniform, voxelResolution);
+				glUniform1i(coverageLayerPrecisionUniform, voxelPrecision);
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, coverageFramebufferTexture);
+				glBindVertexArray(screenSpaceVAO);
+				glDrawArrays(GL_TRIANGLES, 0, 6);
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, linearResamplingFramebuffer);
+				glReadPixels(0, 0, voxelResolution, voxelResolution, GL_RED, GL_UNSIGNED_BYTE, coverageTexture);
+				//calculateCoverage(coverageTexture, processedLayer.x[layerIndex], voxelResolution, voxelPrecision);
+				copyCoverage(coverageTexture, processedLayer.x[layerIndex], voxelResolution);
 			}
 			totalTime += glfwGetTime() - startTime;
 			if(framebufferToBMP)
 			{
 				//saveBMP(string("layers\\x").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
-				saveBMP(string("layers\\px").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.x[layerIndex], voxelResolution, 1);
+				//saveBMP(string("layers\\px").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.x[layerIndex], voxelResolution, 1);
 			}
 		}
 	}
@@ -1072,6 +1242,8 @@ int WinMain(int argc, char** argv)
 			voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f + voxelStep - overlap, (1.0f / (GLfloat) voxelResolution) + voxelStep + overlap);
 
 			voxelMVP = voxelProjection * voxelViewY * voxelModel;
+
+			glViewport(0, 0, layerResolution, layerResolution);
 
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
 			//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
@@ -1114,16 +1286,28 @@ int WinMain(int argc, char** argv)
 				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
 				glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);  //BREAKS NSIGHT
 				glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
-				//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
-				glReadPixels(0, 0, layerResolution, layerResolution, GL_RED, GL_UNSIGNED_BYTE, coverageTexture);
-				calculateCoverage(coverageTexture, processedLayer.y[layerIndex], voxelResolution, voxelPrecision);
-				//copyCoverage(coverageTexture, processedLayer.y[layerIndex], voxelResolution);
+				glViewport(0, 0, voxelResolution, voxelResolution);
+				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, linearResamplingFramebuffer);
+				glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+				glUseProgram(coverageShaderProgram);
+				glUniform1i(framebufferTextureUniform, 0);
+				glUniform1i(coverageLayerResolutionUniform, voxelResolution);
+				glUniform1i(coverageLayerPrecisionUniform, voxelPrecision);
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, coverageFramebufferTexture);
+				glBindVertexArray(screenSpaceVAO);
+				glDrawArrays(GL_TRIANGLES, 0, 6);
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, linearResamplingFramebuffer);
+				glReadPixels(0, 0, voxelResolution, voxelResolution, GL_RED, GL_UNSIGNED_BYTE, coverageTexture);
+				//calculateCoverage(coverageTexture, processedLayer.x[layerIndex], voxelResolution, voxelPrecision);
+				copyCoverage(coverageTexture, processedLayer.y[layerIndex], voxelResolution);
 			}
 			totalTime += glfwGetTime() - startTime;
 			if(framebufferToBMP)
 			{
 				//saveBMP(string("layers\\y").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
-				saveBMP(string("layers\\py").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.y[layerIndex], voxelResolution, 1);
+				//saveBMP(string("layers\\py").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.y[layerIndex], voxelResolution, 1);
 			}
 		}
 	}
@@ -1152,6 +1336,8 @@ int WinMain(int argc, char** argv)
 			voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f + voxelStep - overlap, (1.0f / (GLfloat) voxelResolution) + voxelStep + overlap);
 
 			voxelMVP = voxelProjection * voxelViewZ * voxelModel;
+
+			glViewport(0, 0, layerResolution, layerResolution);
 
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
 			//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
@@ -1194,16 +1380,28 @@ int WinMain(int argc, char** argv)
 				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
 				glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);  //BREAKS NSIGHT
 				glBindFramebuffer(GL_READ_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
-				//glBindFramebuffer(GL_FRAMEBUFFER, coverageFramebuffer);
-				glReadPixels(0, 0, layerResolution, layerResolution, GL_RED, GL_UNSIGNED_BYTE, coverageTexture);
-				calculateCoverage(coverageTexture, processedLayer.z[layerIndex], voxelResolution, voxelPrecision);
-				//copyCoverage(coverageTexture, processedLayer.z[layerIndex], voxelResolution);
+				glViewport(0, 0, voxelResolution, voxelResolution);
+				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, linearResamplingFramebuffer);
+				glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+				glUseProgram(coverageShaderProgram);
+				glUniform1i(framebufferTextureUniform, 0);
+				glUniform1i(coverageLayerResolutionUniform, voxelResolution);
+				glUniform1i(coverageLayerPrecisionUniform, voxelPrecision);
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, coverageFramebufferTexture);
+				glBindVertexArray(screenSpaceVAO);
+				glDrawArrays(GL_TRIANGLES, 0, 6);
+				glBindFramebuffer(GL_READ_FRAMEBUFFER, linearResamplingFramebuffer);
+				glReadPixels(0, 0, voxelResolution, voxelResolution, GL_RED, GL_UNSIGNED_BYTE, coverageTexture);
+				//calculateCoverage(coverageTexture, processedLayer.x[layerIndex], voxelResolution, voxelPrecision);
+				copyCoverage(coverageTexture, processedLayer.z[layerIndex], voxelResolution);
 			}
 			totalTime += glfwGetTime() - startTime;
 			if(framebufferToBMP)
 			{
 				//saveBMP(string("layers\\z").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
-				saveBMP(string("layers\\pz").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.z[layerIndex], voxelResolution, 1);
+				//saveBMP(string("layers\\pz").append(to_string(layerIndex).append(string(".bmp"))).c_str(), processedLayer.z[layerIndex], voxelResolution, 1);
 			}
 		}
 	}
@@ -1258,7 +1456,7 @@ int WinMain(int argc, char** argv)
 				sceneVoxelOcclusionTexture[((voxelResolution - 1 - y) * voxelResolution * voxelResolution) + 
 										((voxelResolution - 1 - layer) * voxelResolution) + 
 										(x)].g = 
-										processedLayer.y[layer][((y) * voxelResolution) + x];
+										processedLayer.y[layer][(y * voxelResolution) + x];
 			}
 		}
 	}
@@ -1302,26 +1500,6 @@ int WinMain(int argc, char** argv)
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	GLint voxelOcclusionTextureUniform, lightVoxelTextureUniform;
-	voxelOcclusionTextureUniform = glGetUniformLocation(mainShaderProgram, "voxelOcclusionTexture");
-	lightVoxelTextureUniform = glGetUniformLocation(mainShaderProgram, "lightVoxelTexture");
-
-	GLint modelUniform, centerUniform, modelScaleUniform, voxelResolutionUniform;
-	modelUniform = glGetUniformLocation(mainShaderProgram, "model");
-	centerUniform = glGetUniformLocation(mainShaderProgram, "center");
-	modelScaleUniform = glGetUniformLocation(mainShaderProgram, "modelScale");
-	voxelResolutionUniform = glGetUniformLocation(mainShaderProgram, "voxelResolution");
-
-	GLint useAmbientOcclusionUniform, useAtmosphericOcclusionUniform, useTextureUniform, useGIUniform;
-	useAmbientOcclusionUniform = glGetUniformLocation(mainShaderProgram, "useAmbientOcclusion");
-	useAtmosphericOcclusionUniform = glGetUniformLocation(mainShaderProgram, "useAtmosphericOcclusion");
-	useGIUniform = glGetUniformLocation(mainShaderProgram, "useGI");
-	useTextureUniform = glGetUniformLocation(mainShaderProgram, "useTexture");
-
-	GLint shiftXUniform, shiftYUniform, shiftZUniform;
-	shiftXUniform = glGetUniformLocation(mainShaderProgram, "shiftX");
-	shiftYUniform = glGetUniformLocation(mainShaderProgram, "shiftY");
-	shiftZUniform = glGetUniformLocation(mainShaderProgram, "shiftZ");
 
 
 	// Data for camera control.
@@ -1370,7 +1548,7 @@ int WinMain(int argc, char** argv)
 	bool useTexture = true;
 	bool useAmbientOcclusion = true;
 	bool useAtmosphericOcclusion = false;
-	bool useGI = true;
+	bool useGI = false;
 
 	int shiftX = 0;
 	int shiftY = 0;
@@ -1385,51 +1563,6 @@ int WinMain(int argc, char** argv)
 	glm::mat4 lightProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.001f, 1.0f);
 	glm::mat4 lightModel = glm::mat4(voxelModel);
 	glm::mat4 lightMVP = lightProjection * lightViewY * lightModel;
-
-
-	// Log file visual seperator.
-	logFile << "\nLight Shader Compilation\n-----------\n\n";
-
-	// Prepare shaders.
-	shader lightVertex, lightFragment;
-	lightVertex.prepare("shaders\\lightVertex.glsl");
-	lightFragment.prepare("shaders\\lightFragment.glsl");
-
-	// Compile shaders.
-	lightVertex.object = glCreateShader(GL_VERTEX_SHADER);
-	glShaderSource(lightVertex.object, 1, &lightVertex.cstr, NULL);
-	glCompileShader(lightVertex.object);
-	lightFragment.object = glCreateShader(GL_FRAGMENT_SHADER);
-	glShaderSource(lightFragment.object, 1, &lightFragment.cstr, NULL);
-	glCompileShader(lightFragment.object);
-
-	// Print shaders to logfile.
-	//logFile << "\n\nVertex Shader:\n" << mainVertex.cstr << "\n\nFragment Shader:\n" << mainFragment.cstr << "\n\n";
-
-	// Log shader compile errors.
-	GLchar lightVertexLog[1000];
-	GLchar lightFragmentLog[1000];
-	glGetShaderInfoLog(lightVertex.object, 1000, &length, lightVertexLog);
-	glGetShaderInfoLog(lightFragment.object, 1000, &length, lightFragmentLog);
-	logFile << "\nVertex Shader Log:\n" << lightVertexLog << "\n\nFragment Shader Log:\n" << lightFragmentLog << "\n\n";
-
-	// Attach shaders to program.
-	GLuint lightShaderProgram = glCreateProgram();
-	glAttachShader(lightShaderProgram, lightVertex.object);
-	glAttachShader(lightShaderProgram, lightFragment.object);
-
-	// Link shader program.
-	glLinkProgram(lightShaderProgram);
-
-	// Map mvp uniform from shaders.
-	GLint lightMVPUniform;
-	lightMVPUniform = glGetUniformLocation(lightShaderProgram, "mvp");
-
-	GLint lightDiffuseTextureUniform;
-	lightDiffuseTextureUniform = glGetUniformLocation(lightShaderProgram, "diffuseTexture");
-
-	GLint renderNormalsUniform;
-	renderNormalsUniform = glGetUniformLocation(lightShaderProgram, "renderNormals");
 
 	//glGenFramebuffers(1, &multisampleFramebuffer);  //BREAKS NSIGHT
 	//glBindFramebuffer(GL_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
@@ -1525,6 +1658,7 @@ int WinMain(int argc, char** argv)
 
 	bool first = true;
 
+	glEnable(GL_MULTISAMPLE);
 	glEnable(GL_DEPTH_TEST);
 	glDepthFunc(GL_LESS);
 	// Main loop with exit on ESC or window close
@@ -1702,7 +1836,7 @@ int WinMain(int argc, char** argv)
 
 		if(useGI)
 		{
-			glDisable(GL_MULTISAMPLE);
+			//glDisable(GL_MULTISAMPLE);
 			glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
 			glViewport(0, 0, lightRenderResolution, lightRenderResolution);
 
@@ -1801,7 +1935,7 @@ int WinMain(int argc, char** argv)
 
 		glUniform1i(diffuseTextureUniform, 0);
 		glUniform1i(normalTextureUniform, 1);
-		glUniform1i(opacityTextureUniform, 3);
+		glUniform1i(specularTextureUniform, 3);
 		glUniform1i(voxelOcclusionTextureUniform, 10);
 		glUniform1i(lightVoxelTextureUniform, 11);
 
@@ -1810,8 +1944,6 @@ int WinMain(int argc, char** argv)
 		glUniform1i(useGIUniform, (int) useGI);
 		glUniform1i(useTextureUniform, (int) useTexture);
 
-		glUniform3fv(centerUniform, 1, glm::value_ptr(center));
-		glUniform1f(modelScaleUniform, modelScale);
 		glUniform1ui(voxelResolutionUniform, voxelResolution);
 		glUniform1i(shiftXUniform, shiftX);
 		glUniform1i(shiftYUniform, shiftY);
@@ -1835,8 +1967,8 @@ int WinMain(int argc, char** argv)
 			glBindTexture(GL_TEXTURE_2D, meshes[index].textures[0].textureID);
 			glActiveTexture(GL_TEXTURE1);
 			glBindTexture(GL_TEXTURE_2D, meshes[index].textures[1].textureID);
-			glActiveTexture(GL_TEXTURE3);
-			glBindTexture(GL_TEXTURE_2D, meshes[index].textures[3].textureID);
+			//glActiveTexture(GL_TEXTURE3);
+			//glBindTexture(GL_TEXTURE_2D, meshes[index].textures[3].textureID);
 			// Set vao as active VAO in the state machine.
 			glBindVertexArray(meshes[index].vao);
 

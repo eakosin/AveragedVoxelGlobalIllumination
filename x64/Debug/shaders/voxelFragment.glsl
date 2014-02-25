@@ -1,5 +1,6 @@
 #version 430
 //Change extension to glsl for nsight debugging
+layout(early_fragment_tests) in;
 out vec4 fragment_color;
 
 void main()
