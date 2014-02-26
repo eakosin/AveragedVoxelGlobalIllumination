@@ -9,7 +9,6 @@ out vec4 fragment_color;
 
 uniform sampler2D diffuseTexture;
 uniform bool renderNormals;
-uniform int textureID[512];
 
 vec4 sample_color;
 

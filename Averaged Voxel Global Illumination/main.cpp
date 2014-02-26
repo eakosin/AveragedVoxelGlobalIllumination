@@ -768,9 +768,10 @@ int WinMain(int argc, char** argv)
 	voxelOcclusionTextureUniform = glGetUniformLocation(mainShaderProgram, "voxelOcclusionTexture");
 	lightVoxelTextureUniform = glGetUniformLocation(mainShaderProgram, "lightVoxelTexture");
 
-	GLint modelUniform, voxelResolutionUniform;
+	GLint modelUniform, voxelResolutionUniform, giResolutionUniform;
 	modelUniform = glGetUniformLocation(mainShaderProgram, "model");
 	voxelResolutionUniform = glGetUniformLocation(mainShaderProgram, "voxelResolution");
+	giResolutionUniform = glGetUniformLocation(mainShaderProgram, "giResolution");
 
 	GLint useAmbientOcclusionUniform, useAtmosphericOcclusionUniform, useTextureUniform, useGIUniform;
 	useAmbientOcclusionUniform = glGetUniformLocation(mainShaderProgram, "useAmbientOcclusion");
@@ -973,7 +974,7 @@ int WinMain(int argc, char** argv)
 	GLuint voxelPrecision = 4;
 	GLuint voxelSubPrecision = 16;
 	GLfloat voxelStep = 1.0f / voxelResolution;
-	GLfloat overlap = voxelStep / 8.0f;
+	GLfloat overlap = voxelStep / 2.0f;
 	bool useLinearResampling = false;
 
 	GLuint layerResolution = voxelResolution * voxelPrecision;
@@ -1100,7 +1101,7 @@ int WinMain(int argc, char** argv)
 		glFramebufferParameteri(coverageFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, layerResolution);
 		glGenTextures(1, &coverageFramebufferTexture);
 		glBindTexture(GL_TEXTURE_2D, coverageFramebufferTexture);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, layerResolution, layerResolution, 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, layerResolution, layerResolution, 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, coverageFramebufferTexture, 0);
@@ -1111,7 +1112,7 @@ int WinMain(int argc, char** argv)
 		glFramebufferParameteri(linearResamplingFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, voxelResolution);
 		glGenTextures(1, &linearResamplingFramebufferTexture);
 		glBindTexture(GL_TEXTURE_2D, linearResamplingFramebufferTexture);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, voxelResolution, voxelResolution, 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, voxelResolution, voxelResolution, 0, GL_RED, GL_UNSIGNED_BYTE, NULL);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, linearResamplingFramebufferTexture, 0);
@@ -1143,7 +1144,7 @@ int WinMain(int argc, char** argv)
 		}
 		else
 		{
-			startTime = glfwGetTime();
+			//startTime = glfwGetTime();
 			voxelStep = (GLfloat) layerIndex / (GLfloat) voxelResolution;
 			voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f + voxelStep - overlap, (1.0f / (GLfloat) voxelResolution) + voxelStep + overlap);
 
@@ -1188,6 +1189,7 @@ int WinMain(int argc, char** argv)
 			}
 			else
 			{
+				startTime = glfwGetTime();
 				glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
 				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
 				glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);  //BREAKS NSIGHT
@@ -1208,8 +1210,9 @@ int WinMain(int argc, char** argv)
 				glReadPixels(0, 0, voxelResolution, voxelResolution, GL_RED, GL_UNSIGNED_BYTE, coverageTexture);
 				//calculateCoverage(coverageTexture, processedLayer.x[layerIndex], voxelResolution, voxelPrecision);
 				copyCoverage(coverageTexture, processedLayer.x[layerIndex], voxelResolution);
+				totalTime += glfwGetTime() - startTime;
 			}
-			totalTime += glfwGetTime() - startTime;
+			//totalTime += glfwGetTime() - startTime;
 			if(framebufferToBMP)
 			{
 				//saveBMP(string("layers\\x").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
@@ -1237,7 +1240,7 @@ int WinMain(int argc, char** argv)
 		}
 		else
 		{
-			startTime = glfwGetTime();
+			//startTime = glfwGetTime();
 			voxelStep = (GLfloat) layerIndex / (GLfloat) voxelResolution;
 			voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f + voxelStep - overlap, (1.0f / (GLfloat) voxelResolution) + voxelStep + overlap);
 
@@ -1282,6 +1285,7 @@ int WinMain(int argc, char** argv)
 			}
 			else
 			{
+				startTime = glfwGetTime();
 				glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
 				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
 				glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);  //BREAKS NSIGHT
@@ -1302,8 +1306,9 @@ int WinMain(int argc, char** argv)
 				glReadPixels(0, 0, voxelResolution, voxelResolution, GL_RED, GL_UNSIGNED_BYTE, coverageTexture);
 				//calculateCoverage(coverageTexture, processedLayer.x[layerIndex], voxelResolution, voxelPrecision);
 				copyCoverage(coverageTexture, processedLayer.y[layerIndex], voxelResolution);
+				totalTime += glfwGetTime() - startTime;
 			}
-			totalTime += glfwGetTime() - startTime;
+			//totalTime += glfwGetTime() - startTime;
 			if(framebufferToBMP)
 			{
 				//saveBMP(string("layers\\y").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
@@ -1331,7 +1336,7 @@ int WinMain(int argc, char** argv)
 		}
 		else
 		{
-			startTime = glfwGetTime();
+			//startTime = glfwGetTime();
 			voxelStep = (GLfloat) layerIndex / (GLfloat) voxelResolution;
 			voxelProjection = glm::ortho(-0.5f, 0.5f, -0.5f, 0.5f, 0.0f + voxelStep - overlap, (1.0f / (GLfloat) voxelResolution) + voxelStep + overlap);
 
@@ -1376,6 +1381,7 @@ int WinMain(int argc, char** argv)
 			}
 			else
 			{
+				startTime = glfwGetTime();
 				glBindFramebuffer(GL_READ_FRAMEBUFFER, multisampleFramebuffer);  //BREAKS NSIGHT
 				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, coverageFramebuffer);  //BREAKS NSIGHT
 				glBlitFramebuffer(0, 0, layerResolution, layerResolution, 0, 0, layerResolution, layerResolution, GL_COLOR_BUFFER_BIT, GL_NEAREST);  //BREAKS NSIGHT
@@ -1396,8 +1402,9 @@ int WinMain(int argc, char** argv)
 				glReadPixels(0, 0, voxelResolution, voxelResolution, GL_RED, GL_UNSIGNED_BYTE, coverageTexture);
 				//calculateCoverage(coverageTexture, processedLayer.x[layerIndex], voxelResolution, voxelPrecision);
 				copyCoverage(coverageTexture, processedLayer.z[layerIndex], voxelResolution);
+				totalTime += glfwGetTime() - startTime;
 			}
-			totalTime += glfwGetTime() - startTime;
+			//totalTime += glfwGetTime() - startTime;
 			if(framebufferToBMP)
 			{
 				//saveBMP(string("layers\\z").append(to_string(layerIndex).append(string(".bmp"))).c_str(), coverageTexture, layerResolution, 3);
@@ -1426,7 +1433,7 @@ int WinMain(int argc, char** argv)
 	}
 
 
-	startTime = glfwGetTime();
+	//startTime = glfwGetTime();
 
 	//Build the 3D texture
 	glm::u8vec3 * sceneVoxelOcclusionTexture = (glm::u8vec3 *) ::operator new(sizeof(glm::u8vec3) * voxelResolution * voxelResolution * voxelResolution);
@@ -1477,7 +1484,7 @@ int WinMain(int argc, char** argv)
 	}
 
 
-	totalTime += glfwGetTime() - startTime;
+	//totalTime += glfwGetTime() - startTime;
 
 	logFile << "\nTotal Time: " << totalTime << "\n";
 
@@ -1945,6 +1952,7 @@ int WinMain(int argc, char** argv)
 		glUniform1i(useTextureUniform, (int) useTexture);
 
 		glUniform1ui(voxelResolutionUniform, voxelResolution);
+		glUniform1ui(giResolutionUniform, lightRenderResolution);
 		glUniform1i(shiftXUniform, shiftX);
 		glUniform1i(shiftYUniform, shiftY);
 		glUniform1i(shiftZUniform, shiftZ);
