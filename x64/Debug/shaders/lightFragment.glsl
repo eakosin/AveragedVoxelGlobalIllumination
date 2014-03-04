@@ -4,11 +4,11 @@ layout(early_fragment_tests) in;
 in vec3 position;
 in vec3 normal;
 in vec2 uv;
-in int instanceID;
-out vec4 fragment_color;
+
+layout (location = 0) out vec4 fragment_color;
+layout (location = 1) out vec4 fragment_normal;
 
 uniform sampler2D diffuseTexture;
-uniform bool renderNormals;
 
 vec4 sample_color;
 
@@ -30,14 +30,9 @@ void main()
 	//	 sample_color.a = abs(clamp(lod.y, 1.0, 100.0)) * 0.85 * (sample_color.a - 0.5) + 0.5;
 	//}
 
-	if(renderNormals)
-	{
-		fragment_color = vec4(((normal + 1.0) / 2.0), sample_color.a);
-	}
-	else
-	{
-		fragment_color = vec4(sample_color.rgb, sample_color.a);
-	}
+	fragment_normal = vec4(((normal + 1.0) / 2.0), sample_color.a);
+
+	fragment_color = vec4(sample_color.rgb, sample_color.a);
 
 	if(fragment_color.a < 0.5)
 	{

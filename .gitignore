@@ -18,6 +18,7 @@ Averaged Voxel Global Illumination/*.dll
 x64/Release/shaders/*.txt
 x64/Release/*.txt
 x64/Debug/crytek-sponza
+x64/Debug/san-miguel
 x64/Debug/sponza*
 x64/Debug/layers
 x64/Debug/correctlayers

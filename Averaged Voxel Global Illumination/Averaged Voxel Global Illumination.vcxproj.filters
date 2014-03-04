@@ -52,5 +52,11 @@
     <None Include="shaders\coverageVertex.glsl">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="shaders\voxelizeLightFragment.glsl">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="shaders\voxelizeLightVertex.glsl">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

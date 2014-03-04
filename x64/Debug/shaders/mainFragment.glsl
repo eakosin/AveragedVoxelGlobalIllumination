@@ -178,7 +178,7 @@ void main()
 
 	}
 
-	intensity = intensity - (aoValue * 0.15);
+	intensity = intensity - (aoValue * 0.05);
 
 
 	giSample = vec3(0.0);
@@ -188,15 +188,15 @@ void main()
 		giSpace = ((model * vec4(position, 1.0)) + 0.5) + vec4(vec3(float(shiftX), float(shiftY), float(shiftZ)) * (giStep / 4.0), 1.0);
 		giSample = (textureLod(lightVoxelTexture, giSpace.xyz, 0.5).rgb + (textureLod(lightVoxelTexture, giSpace.xyz, 1.5).rgb * 3.0)) / 2.0;
 		giSample += textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 1.0), 0.5).rgb * 1.0;
-		giOcclusion = clamp((textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 1.0), 0.5).rgb * 1.0), 0.0, 1.0);
+		giOcclusion = clamp((textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 1.0), 0.5).rgb * 1.0), 0.0, 100.0);
 		giSample += (textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 3.0), 1.5).rgb * 3.0) - giOcclusion;
-		giOcclusion += clamp((textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 3.0), 1.5).rgb * 3.0), 0.0, 1.0);
+		giOcclusion += clamp((textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 3.0), 1.5).rgb * 3.0), 0.0, 100.0);
 		giSample += (textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 7.0), 2.5).rgb * 5.0) - giOcclusion;
-		giOcclusion += clamp((textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 7.0), 2.5).rgb * 5.0), 0.0, 1.0);
+		giOcclusion += clamp((textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 7.0), 2.5).rgb * 5.0), 0.0, 100.0);
 		giSample += (textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 15.0), 3.5).rgb * 7.0) - giOcclusion;
 		//giOcclusion += clamp((textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 15.0), 3.5).rgb * 7.0), 0.0, 1.0);
 		//giSample += (textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 31.0), 4.5).rgb * 9.0) - giOcclusion;
-		clamp(giSample, 0.0, 100.0);
+		giSample = clamp(giSample, 0.0, 1.0);
 	}
 
 
@@ -204,7 +204,7 @@ void main()
 
 
 
-	intensity = intensity + giSample;
+	intensity = intensity + (giSample * 2.0);
 
 
 	//Alpha contrast by LOD for better transparency AA.
