@@ -90,15 +90,21 @@ void main()
 
 	if(useAtmosphericOcclusion)
 	{
-		atmosphericOcclusion = textureLod(voxelOcclusionTexture, voxelSpace.xyz, 1.50).rgb * 2.0;
-		atmosphericOcclusion += textureLod(voxelOcclusionTexture, voxelSpace.xyz, 2.50).rgb * 5.0;
-		atmosphericOcclusion += textureLod(voxelOcclusionTexture, voxelSpace.xyz, 3.50).rgb * 7.0;
-		clamp(atmosphericOcclusion, 0.0, 1.0);
-		//normalize(atmosphericOcclusion);
-		atmosphericOcclusion *= abs(normal);
-		atmosphericOcclusion = combineIntensity(atmosphericOcclusion);
+		//atmosphericOcclusion = textureLod(voxelOcclusionTexture, voxelSpace.xyz, 1.50).rgb * 2.0;
+		//atmosphericOcclusion += textureLod(voxelOcclusionTexture, voxelSpace.xyz, 2.50).rgb * 5.0;
+		//atmosphericOcclusion += textureLod(voxelOcclusionTexture, voxelSpace.xyz, 3.50).rgb * 7.0;
+		atmosphericOcclusion = textureLod(voxelOcclusionTexture, voxelSpace.xyz + vec3(0.0, voxelStep * 4.0, 0.0), 2.0).rgb * 4.0;
+		atmosphericOcclusion += textureLod(voxelOcclusionTexture, voxelSpace.xyz + vec3(0.0, (voxelStep * 6.0) * 2.0, 0.0), 3.0).rgb * 5.0;
+		atmosphericOcclusion += textureLod(voxelOcclusionTexture, voxelSpace.xyz + vec3(0.0, (voxelStep * 8.0) * 3.0, 0.0), 4.0).rgb * 6.0;
+		atmosphericOcclusion += textureLod(voxelOcclusionTexture, voxelSpace.xyz + vec3(0.0, (voxelStep * 10.0) * 4.0, 0.0), 5.0).rgb * 5.0;
 
-		intensity = atmosphereColor * (atmosphericOcclusion / 12.0);
+		//clamp(atmosphericOcclusion, 0.0, 1.0);
+		//normalize(atmosphericOcclusion);
+		//atmosphericOcclusion *= abs(normal);
+		atmosphericOcclusion = combineIntensity(atmosphericOcclusion);
+		atmosphericOcclusion = clamp(atmosphericOcclusion, 0.0, 1.0);
+
+		intensity = intensity * (1.0 - (atmosphericOcclusion / 2.0));
 	}
 
 	aoValue = vec3(0.0f, 0.0f, 0.0f);

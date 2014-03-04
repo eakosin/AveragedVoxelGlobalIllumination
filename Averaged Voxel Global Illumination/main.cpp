@@ -956,8 +956,9 @@ int WinMain(int argc, char** argv)
 	GLint voxelizeLightMVPUniform;
 	voxelizeLightMVPUniform = glGetUniformLocation(voxelizeLightShaderProgram, "mvp");
 
-	GLint layerUniform;
+	GLint layerUniform, lightResolutionUniform;
 	layerUniform = glGetUniformLocation(voxelizeLightShaderProgram, "layer");
+	lightResolutionUniform = glGetUniformLocation(voxelizeLightShaderProgram, "lightResolution");
 
 	GLint lightFramebufferTextureUniform, lightNormalFramebufferTextureUniform, lightDepthFramebufferTextureUniform;
 	lightFramebufferTextureUniform = glGetUniformLocation(voxelizeLightShaderProgram, "lightFramebufferTexture");
@@ -2048,6 +2049,7 @@ int WinMain(int argc, char** argv)
 			glUniform1i(lightFramebufferTextureUniform, 0);
 			glUniform1i(lightNormalFramebufferTextureUniform, 1);
 			glUniform1i(lightDepthFramebufferTextureUniform, 2);
+			glUniform1ui(lightResolutionUniform, lightRenderResolution);
 
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, lightFramebufferTexture);

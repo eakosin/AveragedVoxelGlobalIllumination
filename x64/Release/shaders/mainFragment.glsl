@@ -13,6 +13,7 @@ uniform sampler2D normalTexture;
 //uniform sampler2D specularTexture;
 uniform sampler3D voxelOcclusionTexture;
 uniform sampler3D lightVoxelTexture;
+uniform sampler3D lightNormalTexture;
 
 uniform bool useAmbientOcclusion;
 uniform bool useAtmosphericOcclusion;
@@ -20,11 +21,13 @@ uniform bool useGI;
 uniform bool useTexture;
 
 uniform uint voxelResolution;
+uniform uint giResolution;
 uniform int shiftX;
 uniform int shiftY;
 uniform int shiftZ;
 
 const float voxelStep = 1.0 / float(voxelResolution);
+const float giStep = 1.0 / float(giResolution);
 //const vec3 aoXTransform = vec3(voxelStep, 0.0, 0.0) * 2.0;
 //const vec3 aoYTransform = vec3(0.0, voxelStep, 0.0) * 2.0;
 //const vec3 aoZTransform = vec3(0.0, 0.0, voxelStep) * 2.0;
@@ -52,13 +55,14 @@ const float aoScalar[3] = float[3](1.0, 2.0, 3.0);
 
 vec3 giSample;
 vec3 giOcclusion;
+vec4 giSpace;
 
 vec3 atmospherePosition = vec3(0.0, 1.0, 0.0);
 vec3 atmosphereColor = vec3(0.8196078431, 0.8901960784, 0.9725490196);
 
-void combineIntensity(in vec3 vectorIntensity, out vec3 intensity)
+vec3 combineIntensity(in vec3 vectorIntensity)
 {
-	intensity = vec3(vectorIntensity.x + vectorIntensity.y + vectorIntensity.z);
+	return vec3(vectorIntensity.x + vectorIntensity.y + vectorIntensity.z);
 }
 
 void main()
@@ -75,9 +79,10 @@ void main()
 	voxelSpace = ((model * vec4(position, 1.0)) + 0.5) + vec4(vec3(float(shiftX), float(shiftY), float(shiftZ)) * (voxelStep / 4.0), 1.0);
 
 	intensity = ((normal + 1) * 0.5) * atmospherePosition;
-	combineIntensity(intensity, intensity);
+	intensity = combineIntensity(intensity);
 	//intensity = ((intensity * atmosphereColor) * 0.5) + 0.25;
 	intensity = intensity * atmosphereColor;
+	//intensity = atmosphereColor;
 
 	//voxelSample = textureLod(voxelOcclusionTexture, voxelSpace.xyz, 0).rgb;
 	////sample_color = vec4(0.0, 0.0, 0.0, sample_color.a);
@@ -85,15 +90,21 @@ void main()
 
 	if(useAtmosphericOcclusion)
 	{
-		atmosphericOcclusion = textureLod(voxelOcclusionTexture, voxelSpace.xyz, 1.50).rgb * 2.0;
-		atmosphericOcclusion += textureLod(voxelOcclusionTexture, voxelSpace.xyz, 2.50).rgb * 5.0;
-		atmosphericOcclusion += textureLod(voxelOcclusionTexture, voxelSpace.xyz, 3.50).rgb * 7.0;
-		clamp(atmosphericOcclusion, 0.0, 1.0);
-		//normalize(atmosphericOcclusion);
-		atmosphericOcclusion *= abs(normal);
-		combineIntensity(atmosphericOcclusion, atmosphericOcclusion);
+		//atmosphericOcclusion = textureLod(voxelOcclusionTexture, voxelSpace.xyz, 1.50).rgb * 2.0;
+		//atmosphericOcclusion += textureLod(voxelOcclusionTexture, voxelSpace.xyz, 2.50).rgb * 5.0;
+		//atmosphericOcclusion += textureLod(voxelOcclusionTexture, voxelSpace.xyz, 3.50).rgb * 7.0;
+		atmosphericOcclusion = textureLod(voxelOcclusionTexture, voxelSpace.xyz + vec3(0.0, voxelStep * 4.0, 0.0), 2.0).rgb * 4.0;
+		atmosphericOcclusion += textureLod(voxelOcclusionTexture, voxelSpace.xyz + vec3(0.0, (voxelStep * 6.0) * 2.0, 0.0), 3.0).rgb * 5.0;
+		atmosphericOcclusion += textureLod(voxelOcclusionTexture, voxelSpace.xyz + vec3(0.0, (voxelStep * 8.0) * 3.0, 0.0), 4.0).rgb * 6.0;
+		atmosphericOcclusion += textureLod(voxelOcclusionTexture, voxelSpace.xyz + vec3(0.0, (voxelStep * 10.0) * 4.0, 0.0), 5.0).rgb * 5.0;
 
-		intensity = atmosphereColor * (atmosphericOcclusion / 12.0);
+		//clamp(atmosphericOcclusion, 0.0, 1.0);
+		//normalize(atmosphericOcclusion);
+		//atmosphericOcclusion *= abs(normal);
+		atmosphericOcclusion = combineIntensity(atmosphericOcclusion);
+		atmosphericOcclusion = clamp(atmosphericOcclusion, 0.0, 1.0);
+
+		intensity = intensity * (1.0 - (atmosphericOcclusion / 2.0));
 	}
 
 	aoValue = vec3(0.0f, 0.0f, 0.0f);
@@ -141,27 +152,27 @@ void main()
 		aoSamples[0] += textureLod(voxelOcclusionTexture, voxelSpace.xyz + (normal * voxelStep * 1.0), 0.5).rgb * 1.0;// * abs(normal) * 2.0;
 		aoSamples[0] /= 2.0;
 		clamp(aoSamples[0], 0.0, 1.0);
-		combineIntensity(aoSamples[0], aoSamples[0]);
+		aoSamples[0] = combineIntensity(aoSamples[0]);
 		aoSamples[1] = textureLod(voxelOcclusionTexture, voxelSpace.xyz + (normal * voxelStep * 4.0), 2).rgb * 4.0;// * abs(normal) * 2.0;
 		aoSamples[1] += textureLod(voxelOcclusionTexture, voxelSpace.xyz + (normal * voxelStep * 3.0), 1.5).rgb * 3.0;// * abs(normal) * 2.0;
 		aoSamples[1] /= 2.0;
 		clamp(aoSamples[1], 0.0, 1.0);
-		combineIntensity(aoSamples[1], aoSamples[1]);
+		aoSamples[1] = combineIntensity(aoSamples[1]);
 		aoSamples[2] = textureLod(voxelOcclusionTexture, voxelSpace.xyz + (normal * voxelStep * 6.0), 3).rgb * 6.0;// * abs(normal) * 2.0;
 		aoSamples[2] += textureLod(voxelOcclusionTexture, voxelSpace.xyz + (normal * voxelStep * 5.0), 2.5).rgb * 5.0;// * abs(normal) * 2.0;
 		aoSamples[2] /= 2.0;
 		clamp(aoSamples[2], 0.0, 1.0);
-		combineIntensity(aoSamples[2], aoSamples[2]);
+		aoSamples[2] = combineIntensity(aoSamples[2]);
 		aoSamples[3] = textureLod(voxelOcclusionTexture, voxelSpace.xyz + (normal * voxelStep * 8.0), 4).rgb * 8.0;// * abs(normal) * 2.0;
 		aoSamples[3] += textureLod(voxelOcclusionTexture, voxelSpace.xyz + (normal * voxelStep * 7.0), 3.5).rgb * 7.0;// * abs(normal) * 2.0;
 		aoSamples[3] /= 2.0;
 		clamp(aoSamples[3], 0.0, 1.0);
-		combineIntensity(aoSamples[3], aoSamples[3]);
+		aoSamples[3] = combineIntensity(aoSamples[3]);
 		aoSamples[4] = textureLod(voxelOcclusionTexture, voxelSpace.xyz + (normal * voxelStep * 10.0), 5).rgb * 10.0;// * abs(normal) * 2.0;
 		aoSamples[4] += textureLod(voxelOcclusionTexture, voxelSpace.xyz + (normal * voxelStep * 9.0), 4.5).rgb * 9.0;// * abs(normal) * 2.0;
 		aoSamples[4] /= 2.0;
 		clamp(aoSamples[4], 0.0, 1.0);
-		combineIntensity(aoSamples[4], aoSamples[4]);
+		aoSamples[4] = combineIntensity(aoSamples[4]);
 
 
 
@@ -174,24 +185,38 @@ void main()
 
 	}
 
-	intensity = intensity - (aoValue * 0.15);
+	intensity = intensity - (aoValue * 0.05);
 
 
 	giSample = vec3(0.0);
+	vec3 giNormal, giTempSample;
 
 	if(useGI)
 	{
-		giSample = (textureLod(lightVoxelTexture, voxelSpace.xyz, 0.5).rgb + (textureLod(lightVoxelTexture, voxelSpace.xyz, 1.5).rgb * 3.0)) / 2.0;
-		giSample += textureLod(lightVoxelTexture, voxelSpace.xyz + (normal * voxelStep * 1.0), 0.5).rgb * 1.0;
-		giOcclusion = clamp((textureLod(lightVoxelTexture, voxelSpace.xyz + (normal * voxelStep * 1.0), 0.5).rgb * 1.0), 0.0, 1.0);
-		giSample += (textureLod(lightVoxelTexture, voxelSpace.xyz + (normal * voxelStep * 3.0), 1.5).rgb * 3.0) - giOcclusion;
-		giOcclusion += clamp((textureLod(lightVoxelTexture, voxelSpace.xyz + (normal * voxelStep * 3.0), 1.5).rgb * 3.0), 0.0, 1.0);
-		giSample += (textureLod(lightVoxelTexture, voxelSpace.xyz + (normal * voxelStep * 7.0), 2.5).rgb * 5.0) - giOcclusion;
-		giOcclusion += clamp((textureLod(lightVoxelTexture, voxelSpace.xyz + (normal * voxelStep * 7.0), 2.5).rgb * 5.0), 0.0, 1.0);
-		giSample += (textureLod(lightVoxelTexture, voxelSpace.xyz + (normal * voxelStep * 15.0), 3.5).rgb * 7.0) - giOcclusion;
-		//giOcclusion += clamp((textureLod(lightVoxelTexture, voxelSpace.xyz + (normal * voxelStep * 15.0), 3.5).rgb * 7.0), 0.0, 1.0);
-		//giSample += (textureLod(lightVoxelTexture, voxelSpace.xyz + (normal * voxelStep * 31.0), 4.5).rgb * 9.0) - giOcclusion;
-		clamp(giSample, 0.0, 100.0);
+		giSpace = ((model * vec4(position, 1.0)) + 0.5) + vec4(vec3(float(shiftX), float(shiftY), float(shiftZ)) * (giStep / 4.0), 1.0);
+		giSample = (textureLod(lightVoxelTexture, giSpace.xyz, 0.5).rgb + (textureLod(lightVoxelTexture, giSpace.xyz, 1.5).rgb * 3.0)) / 2.0;
+
+		giTempSample = textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 1.0), 0.5).rgb * 1.0;
+		giNormal = textureLod(lightNormalTexture, giSpace.xyz + (normal * giStep * 1.0), 0.5).rgb * 1.0;
+		giSample += giTempSample * combineIntensity(abs(normal - giNormal)) / 2.0;
+		giOcclusion = clamp((textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 1.0), 0.5).rgb * 1.0), 0.0, 100.0);
+
+		giTempSample = (textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 3.0), 1.5).rgb * 3.0) - giOcclusion;
+		giNormal = (textureLod(lightNormalTexture, giSpace.xyz + (normal * giStep * 3.0), 1.5).rgb * 3.0);
+		giSample += giTempSample * combineIntensity(abs(normal - giNormal)) / 2.0;
+		giOcclusion += clamp((textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 3.0), 1.5).rgb * 3.0), 0.0, 100.0);
+
+		giTempSample = (textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 7.0), 2.5).rgb * 5.0) - giOcclusion;
+		giNormal = (textureLod(lightNormalTexture, giSpace.xyz + (normal * giStep * 7.0), 2.5).rgb * 5.0);
+		giSample += giTempSample * combineIntensity(abs(normal - giNormal)) / 2.0;
+		giOcclusion += clamp((textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 7.0), 2.5).rgb * 5.0), 0.0, 100.0);
+
+		giTempSample = (textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 15.0), 3.5).rgb * 7.0) - giOcclusion;
+		giNormal = (textureLod(lightNormalTexture, giSpace.xyz + (normal * giStep * 15.0), 3.5).rgb * 7.0);
+		giSample += giTempSample * combineIntensity(abs(normal - giNormal)) / 2.0;
+		//giOcclusion += clamp((textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 15.0), 3.5).rgb * 7.0), 0.0, 1.0);
+		//giSample += (textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 31.0), 4.5).rgb * 9.0) - giOcclusion;
+		giSample = clamp(giSample, 0.0, 1.0);
 	}
 
 
@@ -199,7 +224,7 @@ void main()
 
 
 
-	intensity = intensity + giSample;
+	intensity = intensity + (giSample * 2.0);
 
 
 	//Alpha contrast by LOD for better transparency AA.
@@ -214,11 +239,6 @@ void main()
 	}
 
 
-	//voxelSample = textureLod(voxelOcclusionTexture, voxelSpace.xyz, 0).rgb;
-	//sample_color = vec4(0.0, 0.0, 0.0, sample_color.a);
-	//sample_color = sample_color + vec4(voxelSample.rgb, sample_color.a);
-	//fragment_color = vec4(sample_color.rgb, sample_color.a);
-
 	//lightposition = vec3(0.0, 0.75, 0.5);
 	//intensity = ((normal + 1) / 2) * lightposition;
 	//intensity = vec3(intensity.x + intensity.y + intensity.z);
@@ -227,4 +247,10 @@ void main()
 	//{
 	//	discard;
 	//}
+
+	//voxelSample = textureLod(voxelOcclusionTexture, voxelSpace.xyz, 0).rgb;
+	//sample_color = vec4(0.0, 0.0, 0.0, sample_color.a);
+	//sample_color = sample_color + vec4(voxelSample.rgb, sample_color.a);
+	//fragment_color = vec4(sample_color.rgb, sample_color.a);
+
 }
