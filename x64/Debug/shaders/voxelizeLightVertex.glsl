@@ -12,6 +12,6 @@ out vec2 uv;
 
 void main()
 {
-	position = (mvp * vec4(vertex_position.xy, ((float(layer + 1.0) * 2.0) / 128) - 1.0, 1.0)).xyz;
+	position = (mvp * vec4(vertex_position.xy, ((float(layer + 0.0) * 2.0) / 128) - 1.0, 1.0)).xyz;
 	gl_Position = vec4(vertex_position, 1.0);
 }

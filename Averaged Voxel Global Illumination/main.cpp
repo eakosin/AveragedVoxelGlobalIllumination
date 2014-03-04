@@ -764,9 +764,10 @@ int WinMain(int argc, char** argv)
 	GLint mainMVPUniform;
 	mainMVPUniform = glGetUniformLocation(mainShaderProgram, "mvp");
 
-	GLint voxelOcclusionTextureUniform, lightVoxelTextureUniform;
+	GLint voxelOcclusionTextureUniform, lightVoxelTextureUniform, lightNormalTextureUniform;
 	voxelOcclusionTextureUniform = glGetUniformLocation(mainShaderProgram, "voxelOcclusionTexture");
 	lightVoxelTextureUniform = glGetUniformLocation(mainShaderProgram, "lightVoxelTexture");
+	lightNormalTextureUniform = glGetUniformLocation(mainShaderProgram, "lightNormalTexture");
 
 	GLint modelUniform, voxelResolutionUniform, giResolutionUniform;
 	modelUniform = glGetUniformLocation(mainShaderProgram, "model");
@@ -2120,6 +2121,7 @@ int WinMain(int argc, char** argv)
 		glUniform1i(specularTextureUniform, 3);
 		glUniform1i(voxelOcclusionTextureUniform, 10);
 		glUniform1i(lightVoxelTextureUniform, 11);
+		glUniform1i(lightNormalTextureUniform, 12);
 
 		glUniform1i(useAmbientOcclusionUniform, (int) useAmbientOcclusion);
 		glUniform1i(useAtmosphericOcclusionUniform, (int) useAtmosphericOcclusion);

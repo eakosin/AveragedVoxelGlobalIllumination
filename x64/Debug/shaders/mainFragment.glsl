@@ -13,6 +13,7 @@ uniform sampler2D normalTexture;
 //uniform sampler2D specularTexture;
 uniform sampler3D voxelOcclusionTexture;
 uniform sampler3D lightVoxelTexture;
+uniform sampler3D lightNormalTexture;
 
 uniform bool useAmbientOcclusion;
 uniform bool useAtmosphericOcclusion;
@@ -59,9 +60,9 @@ vec4 giSpace;
 vec3 atmospherePosition = vec3(0.0, 1.0, 0.0);
 vec3 atmosphereColor = vec3(0.8196078431, 0.8901960784, 0.9725490196);
 
-void combineIntensity(in vec3 vectorIntensity, out vec3 intensity)
+vec3 combineIntensity(in vec3 vectorIntensity)
 {
-	intensity = vec3(vectorIntensity.x + vectorIntensity.y + vectorIntensity.z);
+	return vec3(vectorIntensity.x + vectorIntensity.y + vectorIntensity.z);
 }
 
 void main()
@@ -78,7 +79,7 @@ void main()
 	voxelSpace = ((model * vec4(position, 1.0)) + 0.5) + vec4(vec3(float(shiftX), float(shiftY), float(shiftZ)) * (voxelStep / 4.0), 1.0);
 
 	intensity = ((normal + 1) * 0.5) * atmospherePosition;
-	combineIntensity(intensity, intensity);
+	intensity = combineIntensity(intensity);
 	//intensity = ((intensity * atmosphereColor) * 0.5) + 0.25;
 	intensity = intensity * atmosphereColor;
 	//intensity = atmosphereColor;
@@ -95,7 +96,7 @@ void main()
 		clamp(atmosphericOcclusion, 0.0, 1.0);
 		//normalize(atmosphericOcclusion);
 		atmosphericOcclusion *= abs(normal);
-		combineIntensity(atmosphericOcclusion, atmosphericOcclusion);
+		atmosphericOcclusion = combineIntensity(atmosphericOcclusion);
 
 		intensity = atmosphereColor * (atmosphericOcclusion / 12.0);
 	}
@@ -145,27 +146,27 @@ void main()
 		aoSamples[0] += textureLod(voxelOcclusionTexture, voxelSpace.xyz + (normal * voxelStep * 1.0), 0.5).rgb * 1.0;// * abs(normal) * 2.0;
 		aoSamples[0] /= 2.0;
 		clamp(aoSamples[0], 0.0, 1.0);
-		combineIntensity(aoSamples[0], aoSamples[0]);
+		aoSamples[0] = combineIntensity(aoSamples[0]);
 		aoSamples[1] = textureLod(voxelOcclusionTexture, voxelSpace.xyz + (normal * voxelStep * 4.0), 2).rgb * 4.0;// * abs(normal) * 2.0;
 		aoSamples[1] += textureLod(voxelOcclusionTexture, voxelSpace.xyz + (normal * voxelStep * 3.0), 1.5).rgb * 3.0;// * abs(normal) * 2.0;
 		aoSamples[1] /= 2.0;
 		clamp(aoSamples[1], 0.0, 1.0);
-		combineIntensity(aoSamples[1], aoSamples[1]);
+		aoSamples[1] = combineIntensity(aoSamples[1]);
 		aoSamples[2] = textureLod(voxelOcclusionTexture, voxelSpace.xyz + (normal * voxelStep * 6.0), 3).rgb * 6.0;// * abs(normal) * 2.0;
 		aoSamples[2] += textureLod(voxelOcclusionTexture, voxelSpace.xyz + (normal * voxelStep * 5.0), 2.5).rgb * 5.0;// * abs(normal) * 2.0;
 		aoSamples[2] /= 2.0;
 		clamp(aoSamples[2], 0.0, 1.0);
-		combineIntensity(aoSamples[2], aoSamples[2]);
+		aoSamples[2] = combineIntensity(aoSamples[2]);
 		aoSamples[3] = textureLod(voxelOcclusionTexture, voxelSpace.xyz + (normal * voxelStep * 8.0), 4).rgb * 8.0;// * abs(normal) * 2.0;
 		aoSamples[3] += textureLod(voxelOcclusionTexture, voxelSpace.xyz + (normal * voxelStep * 7.0), 3.5).rgb * 7.0;// * abs(normal) * 2.0;
 		aoSamples[3] /= 2.0;
 		clamp(aoSamples[3], 0.0, 1.0);
-		combineIntensity(aoSamples[3], aoSamples[3]);
+		aoSamples[3] = combineIntensity(aoSamples[3]);
 		aoSamples[4] = textureLod(voxelOcclusionTexture, voxelSpace.xyz + (normal * voxelStep * 10.0), 5).rgb * 10.0;// * abs(normal) * 2.0;
 		aoSamples[4] += textureLod(voxelOcclusionTexture, voxelSpace.xyz + (normal * voxelStep * 9.0), 4.5).rgb * 9.0;// * abs(normal) * 2.0;
 		aoSamples[4] /= 2.0;
 		clamp(aoSamples[4], 0.0, 1.0);
-		combineIntensity(aoSamples[4], aoSamples[4]);
+		aoSamples[4] = combineIntensity(aoSamples[4]);
 
 
 
@@ -182,18 +183,31 @@ void main()
 
 
 	giSample = vec3(0.0);
+	vec3 giNormal, giTempSample;
 
 	if(useGI)
 	{
 		giSpace = ((model * vec4(position, 1.0)) + 0.5) + vec4(vec3(float(shiftX), float(shiftY), float(shiftZ)) * (giStep / 4.0), 1.0);
 		giSample = (textureLod(lightVoxelTexture, giSpace.xyz, 0.5).rgb + (textureLod(lightVoxelTexture, giSpace.xyz, 1.5).rgb * 3.0)) / 2.0;
-		giSample += textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 1.0), 0.5).rgb * 1.0;
+
+		giTempSample = textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 1.0), 0.5).rgb * 1.0;
+		giNormal = textureLod(lightNormalTexture, giSpace.xyz + (normal * giStep * 1.0), 0.5).rgb * 1.0;
+		giSample += giTempSample * combineIntensity(abs(normal - giNormal)) / 2.0;
 		giOcclusion = clamp((textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 1.0), 0.5).rgb * 1.0), 0.0, 100.0);
-		giSample += (textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 3.0), 1.5).rgb * 3.0) - giOcclusion;
+
+		giTempSample = (textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 3.0), 1.5).rgb * 3.0) - giOcclusion;
+		giNormal = (textureLod(lightNormalTexture, giSpace.xyz + (normal * giStep * 3.0), 1.5).rgb * 3.0);
+		giSample += giTempSample * combineIntensity(abs(normal - giNormal)) / 2.0;
 		giOcclusion += clamp((textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 3.0), 1.5).rgb * 3.0), 0.0, 100.0);
-		giSample += (textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 7.0), 2.5).rgb * 5.0) - giOcclusion;
+
+		giTempSample = (textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 7.0), 2.5).rgb * 5.0) - giOcclusion;
+		giNormal = (textureLod(lightNormalTexture, giSpace.xyz + (normal * giStep * 7.0), 2.5).rgb * 5.0);
+		giSample += giTempSample * combineIntensity(abs(normal - giNormal)) / 2.0;
 		giOcclusion += clamp((textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 7.0), 2.5).rgb * 5.0), 0.0, 100.0);
-		giSample += (textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 15.0), 3.5).rgb * 7.0) - giOcclusion;
+
+		giTempSample = (textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 15.0), 3.5).rgb * 7.0) - giOcclusion;
+		giNormal = (textureLod(lightNormalTexture, giSpace.xyz + (normal * giStep * 15.0), 3.5).rgb * 7.0);
+		giSample += giTempSample * combineIntensity(abs(normal - giNormal)) / 2.0;
 		//giOcclusion += clamp((textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 15.0), 3.5).rgb * 7.0), 0.0, 1.0);
 		//giSample += (textureLod(lightVoxelTexture, giSpace.xyz + (normal * giStep * 31.0), 4.5).rgb * 9.0) - giOcclusion;
 		giSample = clamp(giSample, 0.0, 1.0);

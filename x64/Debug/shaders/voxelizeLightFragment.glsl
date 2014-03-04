@@ -18,7 +18,7 @@ vec4 normal;
 void main()
 {
 	//vec3 coordinate = position;
-	vec3 coordinate = vec3(((position.xy * 0.25) + 0.5), position.z);
+	vec3 coordinate = vec3(((position.xy * 0.25) + 0.5), (position.z * 0.25) + 0.625);
 	depth = texture(lightDepthFramebufferTexture, coordinate.xy).r;
 
 	//if(abs(depth - position.z) > 1.0)
@@ -31,7 +31,8 @@ void main()
 
 	//color = vec4(coordinate, 1.0);
 
-	color = color * ( 1.0 - clamp( abs( ( ( depth ) - coordinate.z ) * 16.0 ) , 0.0, 1.0 ) );
+	color = color * ( 1.0 - clamp( abs( ( ( depth ) - coordinate.z ) * 256.0 ) , 0.0, 1.0 ) );
+	normal = normal * ( 1.0 - clamp( abs( ( ( depth ) - coordinate.z ) * 256.0 ) , 0.0, 1.0 ) );
 
 	//color = vec4(vec3(1.0 - abs(depth - position.z)), 1.0);
 
