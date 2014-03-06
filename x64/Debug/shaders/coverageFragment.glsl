@@ -1,6 +1,21 @@
+// Averaged Voxel GLobal Illumination
+// Copyright (C) 2014  Evan Arthur Kosin
+//
+// This program is free software; you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation; either version 2 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License along
+// with this program; if not, write to the Free Software Foundation, Inc.,
+// 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
 #version 430
-//Change extension to glsl for nsight debugging
-//layout(early_fragment_tests) in;
 in vec3 position;
 out vec4 fragment_color;
 
@@ -12,6 +27,8 @@ vec4 sample_color;
 
 ivec2 coords;
 
+
+// Blur kernels
 const float radius = 16.0;
 
 //const float kernelWeights[25] = { 
@@ -45,8 +62,8 @@ const float errorCorrectWeights = 1.470588235294;
 //};
 
 //const float errorCorrectWeights = 1.0;
-//vec2 lod;
 
+// Calculate percent coverage of a downsampled pixel
 vec4 calculateCoverage(in ivec2 coords)
 {
 	vec4 sample_color = vec4(0.0);
@@ -60,6 +77,7 @@ vec4 calculateCoverage(in ivec2 coords)
 	return sample_color / (coverageLayerPrecision * coverageLayerPrecision);
 }
 
+// Blur several coverage samples into a single fragment
 void main()
 {
 	coords = ivec2(floor(((position.xy / 2.0) + 0.5) * float(coverageLayerPrecision) * float(coverageLayerResolution))) - 1;
@@ -72,8 +90,5 @@ void main()
 			sample_color += calculateCoverage(coords + clamp(ivec2(x, y), 0, coverageLayerResolution)) * kernelWeights[((y + 2) * 5) + (x + 2)] * errorCorrectWeights;
 		}
 	}
-
-	//sample_color = texture(framebufferTexture, (position.xy / coverageLayerPrecision) + 0.5);
 	fragment_color = vec4(sample_color.rgb, 1.0);
-	//fragment_color = vec4(1.0);
 }

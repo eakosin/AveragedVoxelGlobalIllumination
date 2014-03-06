@@ -1,12 +1,21 @@
-WASD - move.
-QE - change elevation.
-1 - Toggles AO.
-2 - Toggles AtmosphericOcclusion.
-T - Toggles Textures.
-R - Resets 3D texture offset.
-Up, Down, Left, Right, Page Up, Page Down - Shift 3D texture offset.
+Controls:
+
+Mouse 1 - Rotate Camera View
+Mouse 2 - Rotate Light View
+WASD - Move Camera View
+QE - Change Camera Elevation
+1 - Toggles Ambient Occlusion - ONN
+2 - Toggles Atmospheric Occlusion - OFF
+3 - Toggles Global Illumination - ON
+T - Toggles Textures - ONN
+R - Reset 3D Texture Offset
+Up, Down, Left, Right, Page Up, Page Down - Shift 3D Texture Offset
+
+
+Requirements:
 
 OpenGL 4.3
+
 
 Build Instructions:
 

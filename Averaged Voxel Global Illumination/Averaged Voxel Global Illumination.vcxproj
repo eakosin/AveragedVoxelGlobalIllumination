@@ -163,6 +163,7 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="dataStructures.h" />
     <ClInclude Include="textures.h" />
   </ItemGroup>
   <ItemGroup>
