@@ -53,11 +53,12 @@ GLfloat fov = 1.1693706f;
 GLuint voxelResolution = 256;
 GLuint voxelPrecision = 4;
 GLuint voxelSubPrecision = 16;
-GLfloat voxelOverlap = 0.75f;
+GLfloat voxelOverlap = 2.0f;
 
 // Light voxel resolution settings.
 GLuint lightRenderResolution = 64;
-GLuint lightRenderSubResolution = 16;
+GLuint lightRenderSupersample = 4;
+GLuint lightRenderSubResolution = 8;
 
 glm::mat4 projection = glm::mat4();
 
@@ -409,9 +410,9 @@ int WinMain(int argc, char** argv)
 	glfwWindowHint(GLFW_GREEN_BITS, 8);
 	glfwWindowHint(GLFW_BLUE_BITS, 8);
 	glfwWindowHint(GLFW_ALPHA_BITS, 8);
-	glfwWindowHint(GLFW_DEPTH_BITS, 32);
+	glfwWindowHint(GLFW_DEPTH_BITS, 24);
 	glfwWindowHint(GLFW_STENCIL_BITS, 8);
-	glfwWindowHint(GLFW_SAMPLES, 16);
+	glfwWindowHint(GLFW_SAMPLES, 8);
 	glfwWindowHint(GLFW_AUX_BUFFERS, 0);
 	glfwWindowHint(GLFW_RESIZABLE, GL_TRUE);
 
@@ -1118,7 +1119,7 @@ int WinMain(int argc, char** argv)
 	GLuint voxelOcclusionTexture;
 	glGenTextures(1, &voxelOcclusionTexture);
 	glBindTexture(GL_TEXTURE_3D, voxelOcclusionTexture);
-	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB, voxelResolution, voxelResolution, voxelResolution, 0, GL_RGB, GL_UNSIGNED_BYTE, sceneVoxelOcclusionTexture);
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA, voxelResolution, voxelResolution, voxelResolution, 0, GL_RGB, GL_UNSIGNED_BYTE, sceneVoxelOcclusionTexture);
 	glGenerateMipmap(GL_TEXTURE_3D);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
@@ -1174,45 +1175,47 @@ int WinMain(int argc, char** argv)
 	GLuint multisampleLightFramebuffer, multisampleLightFramebufferTexture, multisampleLightNormalFrambufferTexture, multisampleDepthLightTexture;
 
 	GLuint framebufferAttachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_DEPTH_ATTACHMENT };
+	GLuint colorbufferAttachments[8] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3,
+										 GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5, GL_COLOR_ATTACHMENT6, GL_COLOR_ATTACHMENT7};
 
 	glGenFramebuffers(1, &multisampleLightFramebuffer);  
 	glBindFramebuffer(GL_FRAMEBUFFER, multisampleLightFramebuffer);  
-	glFramebufferParameteri(multisampleLightFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, lightRenderResolution);  
-	glFramebufferParameteri(multisampleLightFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, lightRenderResolution);  
+	glFramebufferParameteri(multisampleLightFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, lightRenderResolution * lightRenderSupersample);  
+	glFramebufferParameteri(multisampleLightFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, lightRenderResolution * lightRenderSupersample);  
 	glFramebufferParameteri(multisampleLightFramebuffer, GL_FRAMEBUFFER_DEFAULT_SAMPLES, lightRenderSubResolution);  
 
 	glGenTextures(1, &multisampleLightFramebufferTexture);  
 	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, multisampleLightFramebufferTexture);  
-	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, lightRenderSubResolution, GL_RGB, lightRenderResolution, lightRenderResolution, 0);  
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, lightRenderSubResolution, GL_RGBA, lightRenderResolution * lightRenderSupersample, lightRenderResolution * lightRenderSupersample, 0);  
 	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);  
 	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);  
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D_MULTISAMPLE, multisampleLightFramebufferTexture, 0);  
 
 	glGenTextures(1, &multisampleLightNormalFrambufferTexture);  
 	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, multisampleLightNormalFrambufferTexture);  
-	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, lightRenderSubResolution, GL_RGB, lightRenderResolution, lightRenderResolution, 0);  
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, lightRenderSubResolution, GL_RGBA, lightRenderResolution * lightRenderSupersample, lightRenderResolution * lightRenderSupersample, 0);  
 	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);  
 	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);  
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D_MULTISAMPLE, multisampleLightNormalFrambufferTexture, 0);  
 
 	glGenTextures(1, &multisampleDepthLightTexture);  
 	glBindTexture(GL_TEXTURE_2D_MULTISAMPLE, multisampleDepthLightTexture);  
-	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, lightRenderSubResolution, GL_DEPTH_COMPONENT, lightRenderResolution, lightRenderResolution, 0);  
+	glTexImage2DMultisample(GL_TEXTURE_2D_MULTISAMPLE, lightRenderSubResolution, GL_DEPTH_COMPONENT, lightRenderResolution * lightRenderSupersample, lightRenderResolution * lightRenderSupersample, 0);  
 	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MIN_FILTER, GL_LINEAR);  
 	glTexParameteri(GL_TEXTURE_2D_MULTISAMPLE, GL_TEXTURE_MAG_FILTER, GL_LINEAR);  
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D_MULTISAMPLE, multisampleDepthLightTexture, 0);  
 
-	glDrawBuffers(2, framebufferAttachments);
+	glDrawBuffers(3, framebufferAttachments);
 
 
 	glGenFramebuffers(1, &lightFramebuffer);
 	glBindFramebuffer(GL_FRAMEBUFFER, lightFramebuffer);
-	glFramebufferParameteri(lightFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, lightRenderResolution);
-	glFramebufferParameteri(lightFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, lightRenderResolution);
+	glFramebufferParameteri(lightFramebuffer, GL_FRAMEBUFFER_DEFAULT_WIDTH, lightRenderResolution * lightRenderSupersample);
+	glFramebufferParameteri(lightFramebuffer, GL_FRAMEBUFFER_DEFAULT_HEIGHT, lightRenderResolution * lightRenderSupersample);
 
 	glGenTextures(1, &lightFramebufferTexture);
 	glBindTexture(GL_TEXTURE_2D, lightFramebufferTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, lightRenderResolution, lightRenderResolution, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, lightRenderResolution * lightRenderSupersample, lightRenderResolution * lightRenderSupersample, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -1221,7 +1224,7 @@ int WinMain(int argc, char** argv)
 
 	glGenTextures(1, &lightNormalFramebufferTexture);
 	glBindTexture(GL_TEXTURE_2D, lightNormalFramebufferTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, lightRenderResolution, lightRenderResolution, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, lightRenderResolution * lightRenderSupersample, lightRenderResolution * lightRenderSupersample, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -1230,14 +1233,14 @@ int WinMain(int argc, char** argv)
 
 	glGenTextures(1, &lightDepthFramebufferTexture);
 	glBindTexture(GL_TEXTURE_2D, lightDepthFramebufferTexture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, lightRenderResolution, lightRenderResolution, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, lightRenderResolution * lightRenderSupersample, lightRenderResolution * lightRenderSupersample, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, lightDepthFramebufferTexture, 0);
 
-	glDrawBuffers(2, framebufferAttachments);
+	glDrawBuffers(3, framebufferAttachments);
 
 
 	GLuint voxelTextureFramebufferBindPoint;
@@ -1250,7 +1253,7 @@ int WinMain(int argc, char** argv)
 	GLuint lightVoxelTexture;
 	glGenTextures(1, &lightVoxelTexture);
 	glBindTexture(GL_TEXTURE_3D, lightVoxelTexture);
-	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB, lightRenderResolution, lightRenderResolution, lightRenderResolution, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA, lightRenderResolution, lightRenderResolution, lightRenderResolution, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -1260,7 +1263,7 @@ int WinMain(int argc, char** argv)
 	GLuint lightNormalTexture;
 	glGenTextures(1, &lightNormalTexture);
 	glBindTexture(GL_TEXTURE_3D, lightNormalTexture);
-	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGB, lightRenderResolution, lightRenderResolution, lightRenderResolution, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+	glTexImage3D(GL_TEXTURE_3D, 0, GL_RGBA, lightRenderResolution, lightRenderResolution, lightRenderResolution, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
 	glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -1294,10 +1297,12 @@ int WinMain(int argc, char** argv)
 	int shiftY = 0;
 	int shiftZ = 0;
 
-
-
 	// Log file visual seperator.
 	logFile << "\nRender\n-----------\n\n";
+
+	//GLint maxDrawBuffers;
+	//glGetIntegerv(GL_MAX_DRAW_BUFFERS, &maxDrawBuffers);
+	//logFile << "Max Color Attachments: " << maxDrawBuffers << "\n";
 
 	// Main loop with exit on ESC or window close
 	while(!glfwGetKey(window, GLFW_KEY_ESCAPE) && !glfwWindowShouldClose(window))
@@ -1487,7 +1492,7 @@ int WinMain(int argc, char** argv)
 			glEnable(GL_DEPTH_TEST);
 			glEnable(GL_MULTISAMPLE);
 			glDisable(GL_SAMPLE_ALPHA_TO_COVERAGE);
-			glViewport(0, 0, lightRenderResolution, lightRenderResolution);
+			glViewport(0, 0, lightRenderResolution * lightRenderSupersample, lightRenderResolution * lightRenderSupersample);
 
 			// Bind the light view framebuffer.
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, multisampleLightFramebuffer);
@@ -1522,10 +1527,10 @@ int WinMain(int argc, char** argv)
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, lightFramebuffer);  
 			glReadBuffer(GL_COLOR_ATTACHMENT0);
 			glDrawBuffer(GL_COLOR_ATTACHMENT0);
-			glBlitFramebuffer(0, 0, lightRenderResolution, lightRenderResolution, 0, 0, lightRenderResolution, lightRenderResolution, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);  
+			glBlitFramebuffer(0, 0, lightRenderResolution * lightRenderSupersample, lightRenderResolution * lightRenderSupersample, 0, 0, lightRenderResolution * lightRenderSupersample, lightRenderResolution * lightRenderSupersample, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);  
 			glReadBuffer(GL_COLOR_ATTACHMENT1);
 			glDrawBuffer(GL_COLOR_ATTACHMENT1);
-			glBlitFramebuffer(0, 0, lightRenderResolution, lightRenderResolution, 0, 0, lightRenderResolution, lightRenderResolution, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);  
+			glBlitFramebuffer(0, 0, lightRenderResolution * lightRenderSupersample, lightRenderResolution * lightRenderSupersample, 0, 0, lightRenderResolution * lightRenderSupersample, lightRenderResolution * lightRenderSupersample, GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT, GL_NEAREST);  
 			glBindFramebuffer(GL_READ_FRAMEBUFFER, 0);  
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);  
 
@@ -1533,6 +1538,8 @@ int WinMain(int argc, char** argv)
 
 			// Compute voxel space projection matrix from the suns viewpoint.
 			voxelMVP = lightProjection * lightView * glm::mat4(1.0f);
+
+			glViewport(0, 0, lightRenderResolution, lightRenderResolution);
 
 			// Bind the framebuffer for the layers of the 3D texture.
 			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, voxelTextureFramebufferBindPoint);
@@ -1561,7 +1568,7 @@ int WinMain(int argc, char** argv)
 				glUniform1i(layerUniform, layer);
 				glFramebufferTextureLayer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, lightVoxelTexture, 0, layer);
 				glFramebufferTextureLayer(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, lightNormalTexture, 0, layer);
-				glDrawBuffers(2, framebufferAttachments);
+				glDrawBuffers(2, colorbufferAttachments);
 				glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 				glBindVertexArray(screenSpaceVAO);

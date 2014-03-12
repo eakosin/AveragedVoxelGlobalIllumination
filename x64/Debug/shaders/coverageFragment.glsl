@@ -29,27 +29,27 @@ ivec2 coords;
 
 
 // Blur kernels
-const float radius = 16.0;
+//const float radius = 16.0;
 
-//const float kernelWeights[25] = { 
-//	0.00048031, 0.00500493, 0.01093176, 0.00500493, 0.00048031,
-//	0.00500493, 0.05215252, 0.11391157, 0.05215252, 0.00500493,
-//	0.01093176, 0.11391157, 0.24880573, 0.11391157, 0.01093176,
-//	0.00500493, 0.05215252, 0.11391157, 0.05215252, 0.00500493,
-//	0.00048031, 0.00500493, 0.01093176, 0.00500493, 0.00048031
-//};
-
-//const float errorCorrectWeights = 1.01238;
-
-const float kernelWeights[25] = {
-	0.02, 0.02, 0.02, 0.02, 0.02,
-	0.02, 0.04, 0.04, 0.04, 0.02,
-	0.02, 0.04, 0.04, 0.04, 0.02,
-	0.02, 0.04, 0.04, 0.04, 0.02,
-	0.02, 0.02, 0.02, 0.02, 0.02
+const float kernelWeights[25] = { 
+	0.00048031, 0.00500493, 0.01093176, 0.00500493, 0.00048031,
+	0.00500493, 0.05215252, 0.11391157, 0.05215252, 0.00500493,
+	0.01093176, 0.11391157, 0.24880573, 0.11391157, 0.01093176,
+	0.00500493, 0.05215252, 0.11391157, 0.05215252, 0.00500493,
+	0.00048031, 0.00500493, 0.01093176, 0.00500493, 0.00048031
 };
 
-const float errorCorrectWeights = 1.470588235294;
+const float errorCorrectWeights = 1.01238;
+
+//const float kernelWeights[25] = {
+//	0.02, 0.02, 0.02, 0.02, 0.02,
+//	0.02, 0.04, 0.04, 0.04, 0.02,
+//	0.02, 0.04, 0.04, 0.04, 0.02,
+//	0.02, 0.04, 0.04, 0.04, 0.02,
+//	0.02, 0.02, 0.02, 0.02, 0.02
+//};
+//
+//const float errorCorrectWeights = 1.470588235294;
 
 //const float kernelWeights[49] = { 
 //0.010441772214913722, 0.014272210436438351, 0.0172155719545337, 0.018325880952702808, 0.0172155719545337, 0.014272210436438351, 0.010441772214913722, 
@@ -82,9 +82,9 @@ void main()
 {
 	coords = ivec2(floor(((position.xy / 2.0) + 0.5) * float(coverageLayerPrecision) * float(coverageLayerResolution))) - 1;
 	sample_color = vec4(0.0);
-	for(int y = -int(floor(radius / 2.0)); y < int(ceil(radius / 2.0)); y++)
+	for(int y = -2; y < 3; y++)
 	{
-		for(int x = -int(floor(radius / 2.0)); x < int(ceil(radius / 2.0)); x++)
+		for(int x = -2; x < 3; x++)
 		{
 			//sample_color += calculateCoverage(coords + clamp(ivec2(x, y), 0, coverageLayerResolution)) * (1.0 / (radius * radius));
 			sample_color += calculateCoverage(coords + clamp(ivec2(x, y), 0, coverageLayerResolution)) * kernelWeights[((y + 2) * 5) + (x + 2)] * errorCorrectWeights;

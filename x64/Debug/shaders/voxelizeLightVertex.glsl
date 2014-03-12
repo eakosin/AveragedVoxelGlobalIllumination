@@ -31,7 +31,7 @@ out float resolution;
 void main()
 {
 	// Scale vertex position into the same perspective as the rendered light's perspective
-	position = (mvp * vec4(vertex_position.xy, ((float(layer + 0.0) * 2.0) / float(lightResolution)) - 1.0, 1.0)).xyz;
+	position = (mvp * vec4(vertex_position.xy, ((float(layer + 0) * 2.0) / float(lightResolution)) - 1.0, 1.0)).xyz;
 	resolution = float(lightResolution);
 	gl_Position = vec4(vertex_position, 1.0);
 }

@@ -29,16 +29,40 @@ uniform sampler2D lightDepthFramebufferTexture;
 float depth;
 vec4 color;
 vec4 normal;
+vec3 coordinate;
+
+//const float kernelWeights[25] = { 
+//	0.00048031, 0.00500493, 0.01093176, 0.00500493, 0.00048031,
+//	0.00500493, 0.05215252, 0.11391157, 0.05215252, 0.00500493,
+//	0.01093176, 0.11391157, 0.24880573, 0.11391157, 0.01093176,
+//	0.00500493, 0.05215252, 0.11391157, 0.05215252, 0.00500493,
+//	0.00048031, 0.00500493, 0.01093176, 0.00500493, 0.00048031
+//};
+//
+//const float errorCorrectWeights = 1.01238;
+
+const float kernelWeights[9] = { 
+0.07511360795411207, 0.12384140315297386, 0.07511360795411207, 
+0.12384140315297386, 0.20417995557165622, 0.12384140315297386, 
+0.07511360795411207, 0.12384140315297386, 0.07511360795411207
+};
+
+const float errorCorrectWeights = 1.0;
 
 void main()
 {
 	// Computer coordinate for texture based on position in space
-	vec3 coordinate = vec3(((position.xy * 0.25) + 0.5), (position.z * 0.25) + 0.625);
+	coordinate = vec3(((position.xy * 0.25) + 0.5), (position.z * 0.25) + 0.625);
 	depth = texture(lightDepthFramebufferTexture, coordinate.xy).r;
+	//depth = 0.0;
 
-	//if((abs(depth - position.z) * (resolution * 4.0)) > 1.0)
+	//for(int y = -1; y < 2; y++)
 	//{
-	//	discard;
+	//	for(int x = -1; x < 2; x++)
+	//	{
+	//		//sample_color += calculateCoverage(coords + clamp(ivec2(x, y), 0, coverageLayerResolution)) * (1.0 / (radius * radius));
+	//		depth += texture(lightDepthFramebufferTexture, coordinate.xy + vec2(x * (1 / resolution), y * (1 / resolution))).r * kernelWeights[((y + 1) * 3) + (x + 1)] * errorCorrectWeights;
+	//	}
 	//}
 
 	// Sample light texture
@@ -51,5 +75,4 @@ void main()
 
 	fragment_color = color;
 	fragment_normal = normal;
-
 }
